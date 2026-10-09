@@ -1,0 +1,40 @@
+# Supabase-Projektkonfiguration (für die Supabase CLI / GitHub Actions)
+project_id = "waehlwerk-crm"
+
+# Alle Funktionen prüfen Anmeldung bzw. Signaturen selbst
+# (Twilio und Calendly können keinen Supabase-Login mitschicken).
+[functions.twilio-voice]
+verify_jwt = false
+
+[functions.twilio-status]
+verify_jwt = false
+
+[functions.twilio-token]
+verify_jwt = false
+
+[functions.call-control]
+verify_jwt = false
+
+[functions.calendly-webhook]
+verify_jwt = false
+
+[functions.gcal-sync]
+verify_jwt = false
+
+[functions.admin]
+verify_jwt = false
+
+[functions.ai-webhook]
+verify_jwt = false
+
+[functions.email]
+verify_jwt = false
+
+[functions.sms]
+verify_jwt = false
+
+[functions.twilio-sms]
+verify_jwt = false
+
+[functions.jobs]
+verify_jwt = false
