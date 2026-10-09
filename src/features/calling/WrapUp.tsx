@@ -14,6 +14,7 @@ import { cx, errMsg, Segmented, useHotkeys, useUi } from '../../ui/ui.tsx';
 import { StatusSelect } from '../common/bits.tsx';
 import { ActivityFormModal, LeadPicker } from '../common/forms.tsx';
 import { BookMeetingModal } from '../meetings/BookMeeting.tsx';
+import { clearCallNote, getCallNote } from './callNotes.ts';
 
 type Follow = 'none' | '1' | '2' | '7' | 'custom';
 
@@ -36,7 +37,8 @@ export function WrapUp({ ended, inDialer, onDone }: { ended: ActiveCall; inDiale
   const notReached = outcomes.find((o) => !o.counts_as_connected && !o.is_meeting)?.key ?? null;
   const preset = ended.endReason === 'voicemail' ? ref.org.voicemail_drop_outcome ?? notReached : !answered && ended.direction === 'outbound' ? notReached : null;
   const [outcome, setOutcome] = useState<string | null>(preset);
-  const [note, setNote] = useState('');
+  // Notiz aus dem Gespräch übernehmen (Gesprächsnotiz wie in Close)
+  const [note, setNote] = useState(() => getCallNote(ended.id));
   const [statusId, setStatusId] = useState<string | null>(null);
   const [follow, setFollow] = useState<Follow>('none');
   const [customDue, setCustomDue] = useState(toLocalInput(nextWorkday(1, 10)));
@@ -82,6 +84,7 @@ export function WrapUp({ ended, inDialer, onDone }: { ended: ActiveCall; inDiale
       bus.emit('lead', leadId);
       bus.emit('tasks');
       bus.emit('calls');
+      clearCallNote(ended.id);
       phone.clearEnded();
       onDone?.(chosen);
     } catch (e) {

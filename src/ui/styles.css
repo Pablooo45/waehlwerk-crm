@@ -2482,6 +2482,38 @@ button.lead-row:hover,
   color: var(--ink-2);
 }
 
+/* Laufender Anruf auf der Lead-Seite: Notizen während des Gesprächs */
+.live-call-card {
+  margin-bottom: 16px;
+  padding: 10px 12px 12px;
+  border: 1px solid color-mix(in srgb, var(--cross) 45%, var(--line));
+  border-radius: 10px;
+  background: var(--cross-soft);
+}
+
+.live-call-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.rec-dot.live {
+  background: var(--cross);
+}
+
+.call-note {
+  width: min(420px, calc(100vw - 40px));
+}
+
+.live-call-card .call-note {
+  width: 100%;
+}
+
+.call-note .textarea {
+  min-height: 64px;
+}
+
 /* Editor oben im Verlauf (Notiz, E-Mail, SMS, Aktivität, Anruf protokollieren) */
 .inline-panel {
   background: var(--surface);

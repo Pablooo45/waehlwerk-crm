@@ -49,6 +49,7 @@ import { CallButton, DueTag, StatusPill, UserSelect } from '../common/bits.tsx';
 import { FieldInput, formatFieldValue, isEmptyValue, shapeOf } from '../common/fields.tsx';
 import { ActivityFormModal, ContactFormModal, EmailModal, OpportunityModal, phoneTypeLabel, SmsModal, TaskFormModal } from '../common/forms.tsx';
 import { firstPhone, useDialer } from '../dialer/DialerContext.tsx';
+import { CallNoteBox } from '../calling/CallBar.tsx';
 import { BookMeetingModal } from '../meetings/BookMeeting.tsx';
 import { PairCard } from '../settings/Duplicates.tsx';
 import { EnrollInWorkflowModal } from '../workflows/WorkflowPage.tsx';
@@ -345,6 +346,18 @@ function LeadView({ lead, from, timeline, comments, reload }: { lead: Lead; from
             activity={composer.activity}
             onClose={closeComposer}
           />
+        ) : null}
+        {snap.call && snap.call.leadId === lead.id && !snap.call.monitor ? (
+          <div className="live-call-card" role="region" aria-label="Laufender Anruf">
+            <div className="live-call-head">
+              <span className="rec-dot live" aria-hidden="true" />
+              <strong>{snap.call.state === 'open' ? 'Im Gespräch' : 'Anruf läuft'}</strong>
+              <span className="small muted">
+                {[snap.call.contactName, formatPhone(snap.call.number)].filter(Boolean).join(', ')}
+              </span>
+            </div>
+            <CallNoteBox callId={snap.call.id} rows={3} autoFocus={false} />
+          </div>
         ) : null}
         {!composer ? (
           <button type="button" className="note-quick" onClick={() => open({ kind: 'note' })}>

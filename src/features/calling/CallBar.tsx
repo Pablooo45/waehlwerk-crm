@@ -1,25 +1,11 @@
-import {
-  ArrowRightLeft,
-  Building2,
-  Check,
-  Circle,
-  Grid3x3,
-  Headphones,
-  Mic,
-  MicOff,
-  PauseCircle,
-  PhoneForwarded,
-  PhoneOff,
-  PlayCircle,
-  Undo2,
-  Voicemail,
-} from 'lucide-react';
+import { ArrowRightLeft, Building2, Check, Circle, Grid3x3, Headphones, Mic, MicOff, NotebookPen, PauseCircle, PhoneForwarded, PhoneOff, PlayCircle, Undo2, Voicemail } from 'lucide-react';
 import { useState } from 'react';
 import { useApp, usePhone } from '../../app/context.tsx';
 import { leadHref, navigate } from '../../app/router.ts';
 import { formatDuration, formatPhone } from '../../lib/format.ts';
 import { type ActiveCall, MONITOR_LABEL, type MonitorMode } from '../../lib/phone/types.ts';
 import { cx, Dot, errMsg, MenuItem, Popover, Segmented, Tag, useMenu, useNow, useUi } from '../../ui/ui.tsx';
+import { useCallNote } from './callNotes.ts';
 
 const STATE_TEXT: Record<ActiveCall['state'], string> = {
   connecting: 'Verbinde…',
@@ -28,6 +14,24 @@ const STATE_TEXT: Record<ActiveCall['state'], string> = {
   reconnecting: 'Verbindung wird wiederhergestellt…',
   closed: 'Beendet',
 };
+
+// Notiz während des Gesprächs (Anrufleiste und Lead-Seite teilen sich den Text)
+export function CallNoteBox({ callId, rows = 5, autoFocus = true }: { callId: string; rows?: number; autoFocus?: boolean }) {
+  const [text, setText] = useCallNote(callId);
+  return (
+    <div className="call-note">
+      <textarea
+        className="textarea"
+        rows={rows}
+        value={text}
+        autoFocus={autoFocus}
+        onChange={(e) => setText(e.target.value)}
+        placeholder="Notizen zum Gespräch … (landen nach dem Auflegen in der Nachbearbeitung)"
+        aria-label="Notiz zum Gespräch"
+      />
+    </div>
+  );
+}
 
 export function Keypad({ onDigit }: { onDigit: (d: string) => void }) {
   const keys = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '*', '0', '#'];
@@ -48,6 +52,7 @@ export function CallBar() {
   const { toast, confirm } = useUi();
   const now = useNow(500);
   const keypad = useMenu();
+  const notePop = useMenu();
   const vm = useMenu();
   const transfer = useMenu();
   const [digits, setDigits] = useState('');
@@ -195,6 +200,10 @@ export function CallBar() {
           {call.muted ? <MicOff /> : <Mic />}
           {call.muted ? 'Stumm' : 'Mikro'}
         </button>
+        <button type="button" className="ctrl" onClick={notePop.open} aria-haspopup="dialog" title="Notiz zum Gespräch – landet in der Nachbearbeitung">
+          <NotebookPen />
+          Notiz
+        </button>
         <button type="button" className="ctrl" onClick={keypad.open} disabled={call.state === 'connecting'}>
           <Grid3x3 />
           Tasten
@@ -238,6 +247,12 @@ export function CallBar() {
           Auflegen
         </button>
       </div>
+
+      {notePop.isOpen ? (
+        <Popover anchor={notePop.anchor} onClose={notePop.close} align="end">
+          <CallNoteBox callId={call.id} />
+        </Popover>
+      ) : null}
 
       {keypad.isOpen ? (
         <Popover anchor={keypad.anchor} onClose={keypad.close} align="end">
