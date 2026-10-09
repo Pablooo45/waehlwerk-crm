@@ -12,7 +12,7 @@ export const TRIGGERS: { value: WorkflowTriggerType; label: string; hint: string
   { value: 'status_changed', label: 'Status ändert sich', hint: 'Wenn ein Lead einen bestimmten Status bekommt.' },
   { value: 'call_outcome', label: 'Anruf-Ergebnis', hint: 'Nach einem Anruf mit bestimmtem Ergebnis.' },
   { value: 'meeting_booked', label: 'Termin gebucht', hint: 'Wenn ein Termin angelegt wird (CRM, Calendly, Google).' },
-  { value: 'activity_created', label: 'Formular ausgefüllt', hint: 'Wenn ein bestimmtes Formular gespeichert wird.' },
+  { value: 'activity_created', label: 'Aktivität erfasst', hint: 'Wenn eine bestimmte eigene Aktivität gespeichert wird (z. B. Setting-Protokoll).' },
   { value: 'opportunity_status', label: 'Opportunity-Status', hint: 'Wenn eine Opportunity einen bestimmten Status bekommt.' },
 ];
 
@@ -83,7 +83,7 @@ export function describeTrigger(wf: Pick<Workflow, 'trigger'>, ref: Ref): string
     case 'meeting_booked':
       return 'Termin gebucht';
     case 'activity_created':
-      return v ? `Formular „${ref.activityTypes.find((a) => a.id === v)?.name ?? '?'}“` : 'Formular ausgefüllt';
+      return v ? `Aktivität „${ref.activityTypes.find((a) => a.id === v)?.name ?? '?'}“` : 'Aktivität erfasst';
     case 'opportunity_status':
       return v ? `Opportunity wird „${ref.oppStatuses.find((s) => s.id === v)?.label ?? '?'}“` : 'Opportunity-Status ändert sich';
   }

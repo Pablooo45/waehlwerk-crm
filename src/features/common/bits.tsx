@@ -1,9 +1,10 @@
-import { Phone } from 'lucide-react';
+import { Check, ChevronDown, Phone } from 'lucide-react';
+import type { CSSProperties } from 'react';
 import { useApp, usePhone } from '../../app/context.tsx';
 import { useLookups } from '../../app/hooks.ts';
 import { formatDue, formatPhone } from '../../lib/format.ts';
 import type { LeadStatus } from '../../lib/types.ts';
-import { cx, Tag } from '../../ui/ui.tsx';
+import { cx, MenuItem, Popover, Tag, useMenu } from '../../ui/ui.tsx';
 
 export function StatusTag({ statusId }: { statusId: string | null }) {
   const { statusById } = useLookups();
@@ -53,6 +54,61 @@ export function StatusSelect({
         </option>
       ))}
     </select>
+  );
+}
+
+// Farbiger Status-Knopf wie in Close: zeigt den Status, ein Klick öffnet die Auswahl.
+export function StatusPill({
+  value,
+  onChange,
+  statuses,
+  label = 'Status',
+  disabled,
+}: {
+  value: string | null;
+  onChange: (v: string) => void;
+  statuses: { id: string; label: string; color: string }[];
+  label?: string;
+  disabled?: boolean;
+}) {
+  const menu = useMenu();
+  const cur = statuses.find((s) => s.id === value);
+  return (
+    <>
+      <button
+        type="button"
+        className="status-pill"
+        style={{ '--pill': cur?.color ?? '#8a8f98' } as CSSProperties}
+        onClick={menu.open}
+        aria-haspopup="menu"
+        aria-label={`${label}: ${cur?.label ?? 'ohne'} – ändern`}
+        disabled={disabled}
+      >
+        <span className="dot" aria-hidden="true" />
+        <span className="ellipsis">{cur?.label ?? 'ohne Status'}</span>
+        <ChevronDown size={14} aria-hidden="true" />
+      </button>
+      {menu.isOpen ? (
+        <Popover anchor={menu.anchor} onClose={menu.close}>
+          <div className="menu-label">{label} ändern</div>
+          {statuses.map((s) => (
+            <MenuItem
+              key={s.id}
+              icon={<span className="dot" style={{ background: s.color }} aria-hidden="true" />}
+              onClick={() => {
+                menu.close();
+                if (s.id !== value) onChange(s.id);
+              }}
+            >
+              <span className="row gap-6">
+                <span className="grow">{s.label}</span>
+                {s.id === value ? <Check size={15} aria-label="aktuell" /> : null}
+              </span>
+            </MenuItem>
+          ))}
+        </Popover>
+      ) : null}
+    </>
   );
 }
 

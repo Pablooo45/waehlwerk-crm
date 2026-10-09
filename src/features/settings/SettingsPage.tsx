@@ -1,7 +1,7 @@
 import { lazy, Suspense, useEffect, useRef } from 'react';
 import { useApp } from '../../app/context.tsx';
 import { cx, Empty, Loading } from '../../ui/ui.tsx';
-import { SETTINGS_ITEMS } from './items.ts';
+import { SETTINGS_ALIASES, SETTINGS_ITEMS } from './items.ts';
 
 const Profile = lazy(() => import('./Profile.tsx'));
 const Voicemail = lazy(() => import('./Voicemail.tsx'));
@@ -35,7 +35,7 @@ export default function SettingsPage({ section }: { section: string }) {
     nav.scrollLeft += a.getBoundingClientRect().left - nav.getBoundingClientRect().left - (nav.clientWidth - a.offsetWidth) / 2;
   }, [section]);
 
-  const current = items.find((i) => i.id === section);
+  const current = items.find((i) => i.id === (SETTINGS_ALIASES[section] ?? section));
   let group = '';
   return (
     <div className="page">
@@ -73,7 +73,7 @@ export default function SettingsPage({ section }: { section: string }) {
             {current?.id === 'numbers' ? <Numbers /> : null}
             {current?.id === 'telephony' ? <Telephony /> : null}
             {current?.id === 'recordings' ? <Recordings /> : null}
-            {current && ['statuses', 'outcomes', 'pipelines', 'fields', 'script', 'links'].includes(current.id) ? <Customize section={current.id} /> : null}
+            {current && ['statuses', 'outcomes', 'fields', 'script', 'links'].includes(current.id) ? <Customize section={section} /> : null}
             {current?.id === 'forms' ? <Forms /> : null}
             {current?.id === 'calendar' ? <Calendar /> : null}
             {current?.id === 'ai' ? <Ai /> : null}

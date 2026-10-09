@@ -248,7 +248,7 @@ export class SupabaseStore implements Store {
       pipelines: must(pipelines, 'Pipelines') as Pipeline[],
       oppStatuses: this.oppStatuses,
       customFields: this.customFields,
-      activityTypes: must(types, 'Formulare') as ActivityType[],
+      activityTypes: must(types, 'Eigene Aktivitäten') as ActivityType[],
       integrationLinks: must(links, 'Links') as IntegrationLink[],
       org: this.org,
       smartViews: must(views, 'Smart Views') as SmartView[],
@@ -503,11 +503,11 @@ export class SupabaseStore implements Store {
     const res = a.id
       ? await this.sb.from('custom_activities').update(row).eq('id', a.id).select('*').single()
       : await this.sb.from('custom_activities').insert(row).select('*').single();
-    return must(res, 'Formular speichern') as CustomActivity;
+    return must(res, 'Aktivität speichern') as CustomActivity;
   }
 
   async deleteActivity(id: ID) {
-    must(await this.sb.from('custom_activities').delete().eq('id', id), 'Formular löschen');
+    must(await this.sb.from('custom_activities').delete().eq('id', id), 'Aktivität löschen');
   }
 
   async listActivities(filter: { typeId?: ID | null; userId?: ID | null; from?: Date; to?: Date; limit?: number }) {
@@ -517,7 +517,7 @@ export class SupabaseStore implements Store {
     if (filter.from) q = q.gte('created_at', filter.from.toISOString());
     if (filter.to) q = q.lt('created_at', filter.to.toISOString());
     q = q.order('created_at', { ascending: false }).limit(filter.limit ?? 200);
-    return must(await q, 'Formulare') as (CustomActivity & { lead?: { id: ID; name: string } | null })[];
+    return must(await q, 'Aktivitäten') as (CustomActivity & { lead?: { id: ID; name: string } | null })[];
   }
 
   // ---------- Anrufe ----------
@@ -619,7 +619,7 @@ export class SupabaseStore implements Store {
 
   // ---------- Aufgaben ----------
   async listTasks(filter: TaskFilter) {
-    let q: Q = this.sb.from('tasks').select('*, lead:leads(id, name)');
+    let q: Q = this.sb.from('tasks').select('*, lead:leads(id, name, status_id)');
     if (filter.assignedTo === 'team') q = q.is('assigned_to', null);
     else if (filter.assignedTo && filter.assignedTo !== 'all') q = q.eq('assigned_to', filter.assignedTo);
     else if (!filter.assignedTo && !filter.leadId) q = q.eq('assigned_to', this.user().id);
@@ -658,7 +658,7 @@ export class SupabaseStore implements Store {
   // ---------- Inbox ----------
   async listNotifications(filter: NotificationFilter) {
     const now = new Date().toISOString();
-    let q: Q = this.sb.from('notifications').select('*, lead:leads(id, name)').eq('user_id', filter.userId ?? this.user().id);
+    let q: Q = this.sb.from('notifications').select('*, lead:leads(id, name, status_id)').eq('user_id', filter.userId ?? this.user().id);
     if (filter.box === 'done') q = q.not('done_at', 'is', null).order('done_at', { ascending: false });
     else if (filter.box === 'later') q = q.is('done_at', null).gt('snoozed_until', now).order('snoozed_until');
     else q = q.is('done_at', null).or(`snoozed_until.is.null,snoozed_until.lte.${JSON.stringify(now)}`).order('created_at', { ascending: false });

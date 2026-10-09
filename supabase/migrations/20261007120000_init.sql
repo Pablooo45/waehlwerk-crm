@@ -344,6 +344,7 @@ create table public.custom_fields (
   choices      jsonb not null default '[]'::jsonb,
   sort         int not null default 0,
   show_in_list boolean not null default false,
+  always_show  boolean not null default false,  -- am Lead auch leer zeigen (sonst erst, wenn ausgefüllt – wie in Close)
   restricted   boolean not null default false   -- nur mit Recht „Geschützte Felder bearbeiten“ änderbar
 );
 

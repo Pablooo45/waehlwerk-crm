@@ -19,7 +19,7 @@ export const PERMISSION_GROUPS: PermissionGroup[] = [
     title: 'Organisation',
     items: [
       { key: 'manage_organization', label: 'Organisation verwalten', hint: 'Benutzer anlegen, Rollen & Rechte, Telefonie, Aufnahmen, Verbindungen (Twilio, Calendly, Google, KI).' },
-      { key: 'manage_customizations', label: 'Einstellungen anpassen', hint: 'Status, Pipelines, Anruf-Ergebnisse, Felder, Formulare, Gesprächsleitfaden.' },
+      { key: 'manage_customizations', label: 'Einstellungen anpassen', hint: 'Status, Pipelines, Anruf-Ergebnisse, Felder, eigene Aktivitäten, Gesprächsleitfaden.' },
       { key: 'manage_phone_numbers', label: 'Telefonnummern verwalten', hint: 'Gruppennummern, Rufzeiten, Telefonmenü, Weiterleitungen.' },
       { key: 'manage_workflows', label: 'Workflows verwalten', hint: 'Workflows anlegen, ändern, starten und anhalten.' },
       { key: 'manage_team_smart_views', label: 'Smart Views fürs Team', hint: 'Smart Views für alle freigeben und fremde Smart Views ändern.' },
@@ -48,8 +48,8 @@ export const PERMISSION_GROUPS: PermissionGroup[] = [
   {
     title: 'Aktivitäten, Opportunities, Aufgaben',
     items: [
-      { key: 'manage_others_activities', label: 'Aktivitäten anderer bearbeiten', hint: 'Notizen, Anrufe, E-Mails und Formulare von Kollegen ändern und löschen.' },
-      { key: 'delete_own_activities', label: 'Eigene Aktivitäten löschen', hint: 'Eigene Notizen, Anrufe, E-Mails und Formulare löschen.' },
+      { key: 'manage_others_activities', label: 'Aktivitäten anderer bearbeiten', hint: 'Notizen, Anrufe, E-Mails und eigene Aktivitäten von Kollegen ändern und löschen.' },
+      { key: 'delete_own_activities', label: 'Eigene Aktivitäten löschen', hint: 'Eigene Notizen, Anrufe, E-Mails und Aktivitäten löschen.' },
       { key: 'manage_others_opportunities', label: 'Opportunities anderer bearbeiten', hint: 'Fremde Opportunities ändern und löschen.' },
       { key: 'delete_own_opportunities', label: 'Eigene Opportunities löschen', hint: '' },
       { key: 'manage_others_tasks', label: 'Aufgaben anderer bearbeiten', hint: 'Fremde Aufgaben ändern, erledigen und löschen.' },

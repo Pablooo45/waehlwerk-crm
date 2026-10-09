@@ -9,6 +9,7 @@ import { MONITOR_HINT, MONITOR_LABEL, type MonitorMode } from '../../lib/phone/t
 import type { LiveCall, Profile } from '../../lib/types.ts';
 import { Avatar, cx, Empty, errMsg, Loading, useInterval, useNow, useUi } from '../../ui/ui.tsx';
 import { functionLabel } from '../settings/Team.tsx';
+import { ConversationTabs } from './ConversationTabs.tsx';
 
 type Presence = 'call' | 'ready' | 'dnd' | 'offline';
 
@@ -73,10 +74,9 @@ export default function LivePage() {
   return (
     <div className="page live-page">
       <div className="page-head">
-        <h1>
-          Live-Gespräche <span className="muted num" style={{ fontWeight: 500 }}>{calls.length || ''}</span>
-        </h1>
+        <h1>Gespräche</h1>
       </div>
+      <ConversationTabs value="live" liveCount={calls.length} />
 
       {!ref.org.conference_mode ? (
         <div className="callout">

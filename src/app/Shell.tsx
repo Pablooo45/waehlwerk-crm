@@ -1,42 +1,42 @@
 import {
-  Bell,
   CalendarDays,
   ChevronDown,
   CircleUserRound,
-  Grid3x3,
+  Columns3,
   Inbox,
   Keyboard,
   LogOut,
   Menu,
   Moon,
+  Pencil,
+  Phone,
   PhoneCall,
-  Pin,
   Plus,
   Rows3,
+  Search as SearchIcon,
   Settings,
   Sun,
-  Workflow,
   Zap,
 } from 'lucide-react';
 import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import { bus } from '../lib/bus.ts';
 import { config } from '../lib/config.ts';
-import { formatPhone, formatRelative, normalizePhone } from '../lib/format.ts';
+import { formatRelative } from '../lib/format.ts';
 import type { DemoPhone } from '../lib/phone/demoPhone.ts';
 import type { DemoStore } from '../lib/store/demoStore.ts';
 import { pinnedViews } from '../lib/views.ts';
-import { Avatar, cx, errMsg, Loading, MenuItem, Modal, Popover, useHotkeys, useMenu, useUi } from '../ui/ui.tsx';
-import { CallBar, Keypad } from '../features/calling/CallBar.tsx';
+import { Avatar, cx, errMsg, Loading, MenuItem, Popover, useHotkeys, useMenu, useUi } from '../ui/ui.tsx';
+import { CallBar } from '../features/calling/CallBar.tsx';
 import { IncomingCall } from '../features/calling/IncomingCall.tsx';
 import { WrapUp } from '../features/calling/WrapUp.tsx';
-import { LeadFormModal, TaskFormModal } from '../features/common/forms.tsx';
+import { LeadFormModal } from '../features/common/forms.tsx';
 import { DialerProvider, useDialer } from '../features/dialer/DialerContext.tsx';
 import { useApp, usePhone } from './context.tsx';
 import { useAsync } from './hooks.ts';
 import { navigate, type Route, routeHref, useRoute } from './router.ts';
 import { type NavItem, useNavItems } from './nav.tsx';
-import { Search } from './Search.tsx';
-import { NotificationsBell } from './Notifications.tsx';
+import { SearchPalette } from './Search.tsx';
+import { DialpadModal, PhonePanel, usePhoneLine } from './PhonePanel.tsx';
 import { ShortcutsHelp } from './ShortcutsHelp.tsx';
 
 const InboxPage = lazy(() => import('../features/inbox/InboxPage.tsx'));
@@ -85,17 +85,17 @@ function ShellInner() {
   const route = useRoute();
   const snap = usePhone();
   const dialer = useDialer();
-  const { me, ref, signOut, demo, store, phone, can, reloadRef } = useApp();
-  const { toast } = useUi();
+  const { me, ref, signOut, demo, store, phone, reloadRef } = useApp();
   const inbox = useInboxCount();
   const [newLead, setNewLead] = useState(false);
-  const [newTask, setNewTask] = useState(false);
   const [dialpad, setDialpad] = useState(false);
   const [help, setHelp] = useState(false);
+  const [search, setSearch] = useState(false);
   const [navOpen, setNavOpen] = useState(false);
-  const newMenu = useMenu();
   const userMenu = useMenu();
+  const phoneMenu = useMenu();
   const gPressed = useRef(0);
+  const { lineClass, phoneText } = usePhoneLine();
 
   // Live-Updates aus der Datenbank an die Seiten weitergeben
   useEffect(() => {
@@ -139,40 +139,39 @@ function ShellInner() {
   }, [store]);
 
   const go = (r: Route) => navigate(r);
+  const g = () => Date.now() - gPressed.current < 900;
   useHotkeys({
     '?': () => setHelp(true),
+    'mod+k': (e) => {
+      e.preventDefault();
+      setSearch(true);
+    },
+    '/': (e) => {
+      e.preventDefault();
+      setSearch(true);
+    },
+    'mod+shift+l': (e) => {
+      e.preventDefault();
+      setNewLead(true);
+    },
     g: () => (gPressed.current = Date.now()),
-    i: () => Date.now() - gPressed.current < 900 && go({ name: 'inbox', box: 'inbox', userId: null }),
-    l: () => Date.now() - gPressed.current < 900 && go({ name: 'leads', viewId: null }),
-    k: () => Date.now() - gPressed.current < 900 && go({ name: 'contacts' }),
-    o: () => Date.now() - gPressed.current < 900 && go({ name: 'opportunities', pipelineId: null }),
-    a: () => Date.now() - gPressed.current < 900 && go({ name: 'calls' }),
-    t: () => Date.now() - gPressed.current < 900 && go({ name: 'meetings' }),
-    w: () => Date.now() - gPressed.current < 900 && go({ name: 'workflows' }),
-    r: () => Date.now() - gPressed.current < 900 && go({ name: 'reports', tab: null }),
-    s: () => Date.now() - gPressed.current < 900 && go({ name: 'settings', section: 'profile' }),
-    n: () => setNewLead(true),
-    c: () => Date.now() - gPressed.current >= 900 && setDialpad(true),
+    i: () => g() && go({ name: 'inbox', box: 'inbox', userId: null }),
+    l: () => g() && go({ name: 'leads', viewId: null }),
+    k: () => g() && go({ name: 'contacts' }),
+    o: () => g() && go({ name: 'opportunities', pipelineId: null }),
+    a: () => g() && go({ name: 'calls' }),
+    t: () => g() && go({ name: 'meetings' }),
+    w: () => g() && go({ name: 'workflows' }),
+    r: () => g() && go({ name: 'reports', tab: null }),
+    s: () => g() && go({ name: 'settings', section: 'profile' }),
+    // „N“ = neuer Lead – auf einer Lead-Seite heißt N „Notiz“
+    n: () => !g() && route.name !== 'lead' && setNewLead(true),
   });
 
   const nav = useNavItems(inbox);
-  const lineClass = snap.call ? (snap.call.state === 'open' ? 'live' : 'busy') : snap.status === 'ready' ? (me.available ? 'ready' : 'dnd') : snap.status === 'error' ? 'error' : '';
   const showGlobalWrapUp = !!snap.ended && !(dialer.active && route.name === 'dialer');
   const isActive = (n: NavItem) => n.match.includes(route.name);
-  const phoneText = snap.call
-    ? snap.call.state === 'open' ? 'Im Gespräch' : 'Wählt…'
-    : snap.status === 'ready' ? (me.available ? 'Erreichbar' : 'Nicht stören') : snap.status === 'starting' ? 'Verbinde…' : snap.status === 'unconfigured' ? 'Telefonie nicht eingerichtet' : snap.status === 'offline' ? 'Getrennt' : snap.status === 'error' ? 'Telefon-Fehler' : 'Telefon aus';
   const views = pinnedViews(ref.smartViews, me.settings.pinnedViews, me.settings.hiddenViews);
-
-  const toggleAvailable = async () => {
-    try {
-      await store.updateMyProfile({ available: !me.available });
-      await reloadRef();
-      toast(me.available ? 'Nicht stören: Anrufe gehen an Kollegen, Weiterleitung oder Mailbox.' : 'Du bist wieder erreichbar.');
-    } catch (e) {
-      toast(String(e), { kind: 'error' });
-    }
-  };
 
   const theme = me.settings.theme ?? 'system';
   const toggleTheme = async () => {
@@ -184,31 +183,52 @@ function ShellInner() {
   return (
     <div className={cx('app', navOpen && 'nav-open')}>
       <aside className="sidebar" aria-label="Hauptnavigation">
-        <div className="brand">
-          <span className={cx('line-dot', lineClass)} title={phoneText} />
-          <span className="brand-name">{config.appName}</span>
-          <span className="brand-org ellipsis" title={ref.org.name}>{ref.org.name}</span>
+        <div className="side-top">
+          <button type="button" className="account-btn" onClick={userMenu.open} aria-haspopup="menu" title="Konto und Einstellungen">
+            <Avatar name={me.full_name || me.email} color={me.color} />
+            <span className="grow account-text">
+              <span className="account-org ellipsis">{ref.org.name || config.appName}</span>
+              <span className="account-user ellipsis">{me.full_name || me.email}</span>
+            </span>
+            <ChevronDown size={15} aria-hidden="true" />
+          </button>
+          <button type="button" className="phone-btn" onClick={phoneMenu.open} aria-haspopup="dialog" aria-label={`Telefon: ${phoneText}`} title={`Telefon: ${phoneText}`}>
+            <Phone />
+            <span className={cx('line-dot', lineClass)} aria-hidden="true" />
+          </button>
         </div>
+        <button type="button" className="side-search" onClick={() => setSearch(true)}>
+          <SearchIcon aria-hidden="true" />
+          <span className="grow">Suchen</span>
+          <kbd className="hide-touch">Strg K</kbd>
+        </button>
         <nav className="nav">
           {nav.map((n) => (
-            <a key={n.label} href={routeHref(n.route)} className={cx(isActive(n) && 'active')}>
-              {n.icon}
-              {n.label}
-              {n.count ? <span className="count">{n.count > 99 ? '99+' : n.count}</span> : null}
-            </a>
+            <div key={n.label} className="nav-row">
+              <a href={routeHref(n.route)} className={cx(isActive(n) && 'active')} aria-current={isActive(n) ? 'page' : undefined}>
+                {n.icon}
+                <span className="grow">{n.label}</span>
+                {n.count ? <span className="count">{n.count > 99 ? '99+' : n.count}</span> : null}
+              </a>
+              {n.label === 'Leads' ? (
+                <button type="button" className="nav-add" onClick={() => setNewLead(true)} aria-label="Neuen Lead anlegen" title="Neuer Lead (Strg + Umschalt + L)">
+                  <Plus />
+                </button>
+              ) : null}
+            </div>
           ))}
           {dialer.active ? (
-            <a href="#/dialer" className={cx(route.name === 'dialer' && 'active')}>
+            <a href="#/dialer" className={cx('nav-dialer', route.name === 'dialer' && 'active')}>
               <Zap />
-              Power Dialer
+              <span className="grow">Power Dialer</span>
             </a>
           ) : null}
         </nav>
         <div className="views" aria-label="Smart Views">
           <div className="views-head">
             <span className="grow">Smart Views</span>
-            <a href="#/views" className="icon-btn small" title="Alle Smart Views" aria-label="Alle Smart Views">
-              <Pin />
+            <a href="#/views" className="icon-btn small" title="Smart Views verwalten" aria-label="Smart Views verwalten">
+              <Pencil />
             </a>
           </div>
           {views.map((v) => (
@@ -226,44 +246,31 @@ function ShellInner() {
           </a>
         </div>
         <div className="sidebar-foot">
-          <button type="button" className="phone-chip" onClick={toggleAvailable} title="Erreichbarkeit umschalten">
-            <span className={cx('line-dot', lineClass)} />
-            <span className="grow">
-              {phoneText}
-              <br />
-              <span className="muted xs">{demo ? 'Demo – keine echten Anrufe' : snap.message ?? (me.available ? 'Klicken für „Nicht stören“' : 'Klicken, um erreichbar zu sein')}</span>
-            </span>
+          <a href="#/settings/profile" className={cx('foot-link', route.name === 'settings' && 'active')}>
+            <Settings /> Einstellungen
+          </a>
+          <button type="button" className="icon-btn small hide-touch" onClick={() => setHelp(true)} title="Tastenkürzel (?)" aria-label="Tastenkürzel">
+            <Keyboard />
           </button>
-          <div className="me">
-            <button type="button" className="me-btn" onClick={userMenu.open} aria-haspopup="menu">
-              <Avatar name={me.full_name || me.email} color={me.color} />
-              <span className="grow ellipsis">
-                {me.full_name || me.email}
-                <span className="block xs muted ellipsis">{ref.roles.find((r) => r.id === me.role_id)?.name ?? ''}</span>
-              </span>
-              <ChevronDown size={16} />
-            </button>
-          </div>
         </div>
       </aside>
       {navOpen ? <div className="nav-scrim" onClick={() => setNavOpen(false)} /> : null}
 
       <div className="main">
         {demo ? <DemoBanner onIncoming={() => (phone as unknown as DemoPhone).simulateIncoming?.()} onReset={() => { (store as unknown as DemoStore).reset(); location.reload(); }} /> : <JobsBanner />}
-        <header className="topbar">
-          <button type="button" className="icon-btn show-mobile" onClick={() => setNavOpen(true)} aria-label="Menü öffnen">
+        <header className="topbar show-mobile-flex">
+          <button type="button" className="icon-btn" onClick={() => setNavOpen(true)} aria-label="Menü öffnen">
             <Menu />
           </button>
-          <Search onNewLead={() => setNewLead(true)} onDial={() => setDialpad(true)} />
-          <NotificationsBell />
-          <button type="button" className="icon-btn hide-mobile" onClick={() => setHelp(true)} title="Tastenkürzel (?)" aria-label="Tastenkürzel">
-            <Keyboard />
+          <button type="button" className="topbar-search" onClick={() => setSearch(true)}>
+            <SearchIcon aria-hidden="true" /> Suchen
           </button>
-          <button type="button" className="btn hide-mobile" onClick={() => setDialpad(true)} title="Nummer wählen (C)" disabled={!can('calling')}>
-            <Grid3x3 /> Wählen
+          <button type="button" className="icon-btn phone-btn-m" onClick={phoneMenu.open} aria-label={`Telefon: ${phoneText}`}>
+            <Phone />
+            <span className={cx('line-dot', lineClass)} aria-hidden="true" />
           </button>
-          <button type="button" className="btn primary" onClick={newMenu.open} aria-haspopup="menu">
-            <Plus /> <span className="hide-mobile">Neu</span>
+          <button type="button" className="btn primary icon-only" onClick={() => setNewLead(true)} aria-label="Neuen Lead anlegen">
+            <Plus />
           </button>
         </header>
         <CallBar />
@@ -291,38 +298,38 @@ function ShellInner() {
         <a href="#/leads" className={cx((route.name === 'leads' || route.name === 'lead' || route.name === 'views') && 'active')}>
           <Rows3 /> Leads
         </a>
-        <a href={dialer.active ? '#/dialer' : '#/meetings'} className={cx((route.name === 'meetings' || route.name === 'dialer') && 'active')}>
-          {dialer.active ? <Zap /> : <CalendarDays />} {dialer.active ? 'Dialer' : 'Termine'}
+        <a href={dialer.active ? '#/dialer' : '#/opportunities'} className={cx((route.name === 'opportunities' || route.name === 'dialer') && 'active')}>
+          {dialer.active ? <Zap /> : <Columns3 />} {dialer.active ? 'Dialer' : 'Pipeline'}
         </a>
-        <a href="#/calls" className={cx((route.name === 'calls' || route.name === 'call') && 'active')}>
+        <a href="#/calls" className={cx((route.name === 'calls' || route.name === 'call' || route.name === 'live') && 'active')}>
           <PhoneCall /> Gespräche
         </a>
-        <a href="#/more" className={cx(!['inbox', 'leads', 'lead', 'views', 'meetings', 'dialer', 'calls', 'call'].includes(route.name) && 'active')}>
+        <a href="#/more" className={cx(!['inbox', 'leads', 'lead', 'views', 'opportunities', 'dialer', 'calls', 'call', 'live'].includes(route.name) && 'active')}>
           <Menu /> Mehr
         </a>
       </nav>
 
-      {newMenu.isOpen ? (
-        <Popover anchor={newMenu.anchor} onClose={newMenu.close} align="end">
-          <MenuItem icon={<Rows3 />} onClick={() => { newMenu.close(); setNewLead(true); }}>Lead (N)</MenuItem>
-          <MenuItem icon={<Bell />} onClick={() => { newMenu.close(); setNewTask(true); }}>Aufgabe</MenuItem>
-          {can('calling') ? <MenuItem icon={<PhoneCall />} onClick={() => { newMenu.close(); setDialpad(true); }}>Anruf (C)</MenuItem> : null}
-          {can('manage_workflows') ? <MenuItem icon={<Workflow />} onClick={() => { newMenu.close(); navigate('#/workflows/new'); }}>Workflow</MenuItem> : null}
-        </Popover>
-      ) : null}
       {userMenu.isOpen ? (
         <Popover anchor={userMenu.anchor} onClose={userMenu.close}>
+          <div className="menu-label">{me.email}</div>
           <MenuItem icon={<CircleUserRound />} onClick={() => { userMenu.close(); navigate('#/settings/profile'); }}>Mein Profil</MenuItem>
           <MenuItem icon={<Settings />} onClick={() => { userMenu.close(); navigate('#/settings/profile'); }}>Einstellungen</MenuItem>
+          <MenuItem icon={<CalendarDays />} onClick={() => { userMenu.close(); navigate('#/meetings'); }}>Alle Termine</MenuItem>
           <MenuItem icon={theme === 'dark' ? <Sun /> : <Moon />} onClick={() => { userMenu.close(); toggleTheme(); }}>Hell / Dunkel</MenuItem>
           <MenuItem icon={<Keyboard />} onClick={() => { userMenu.close(); setHelp(true); }}>Tastenkürzel</MenuItem>
+          <div className="menu-sep" />
           <MenuItem icon={<LogOut />} onClick={() => { userMenu.close(); signOut(); }}>Abmelden</MenuItem>
+        </Popover>
+      ) : null}
+      {phoneMenu.isOpen ? (
+        <Popover anchor={phoneMenu.anchor} onClose={phoneMenu.close}>
+          <PhonePanel onClose={phoneMenu.close} />
         </Popover>
       ) : null}
 
       <IncomingCall />
+      {search ? <SearchPalette onClose={() => setSearch(false)} onNewLead={() => setNewLead(true)} onDial={() => setDialpad(true)} /> : null}
       {newLead ? <LeadFormModal onClose={() => setNewLead(false)} /> : null}
-      {newTask ? <TaskFormModal onClose={() => setNewTask(false)} /> : null}
       {dialpad ? <DialpadModal onClose={() => setDialpad(false)} /> : null}
       {help ? <ShortcutsHelp onClose={() => setHelp(false)} /> : null}
     </div>
@@ -426,43 +433,5 @@ function JobsBanner() {
         Später
       </button>
     </div>
-  );
-}
-
-function DialpadModal({ onClose }: { onClose: () => void }) {
-  const { dial, store } = useApp();
-  const [number, setNumber] = useState('');
-  const valid = !!normalizePhone(number);
-  const go = async () => {
-    if (!valid) return;
-    const match = await store.findLeadByPhone(number).catch(() => null);
-    const ok = await dial({
-      number,
-      leadId: match?.lead.id ?? null,
-      contactId: match?.contact?.id ?? null,
-      leadName: match?.lead.name ?? null,
-      contactName: match?.contact?.name ?? null,
-    });
-    if (ok) onClose();
-  };
-  return (
-    <Modal title="Nummer wählen" onClose={onClose}>
-      <div className="col gap-12">
-        <input
-          className="input"
-          style={{ fontSize: 22, textAlign: 'center', fontWeight: 700 }}
-          type="tel"
-          value={number}
-          onChange={(e) => setNumber(e.target.value)}
-          onKeyDown={(e) => e.key === 'Enter' && go()}
-          placeholder="069 123456"
-          autoFocus
-        />
-        <Keypad onDigit={(d) => setNumber((n) => n + d)} />
-        <button type="button" className="btn call large block" onClick={go} disabled={!valid}>
-          <PhoneCall /> {valid ? `${formatPhone(number)} anrufen` : 'Anrufen'}
-        </button>
-      </div>
-    </Modal>
   );
 }

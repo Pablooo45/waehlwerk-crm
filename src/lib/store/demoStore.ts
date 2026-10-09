@@ -229,7 +229,8 @@ export class DemoStore implements Store {
   }
 
   private leadRef(id: ID | null | undefined) {
-    return id ? { id, name: this.leadName(id) } : null;
+    if (!id) return null;
+    return { id, name: this.leadName(id), status_id: this.db.leads.find((l) => l.id === id)?.status_id ?? null };
   }
 
   private notify(userId: ID | null | undefined, kind: NotificationKind, leadId: ID | null, refKind: string | null, refId: ID | null, title: string, body = '') {
@@ -972,7 +973,7 @@ export class DemoStore implements Store {
     await wait();
     if (!this.canSeeLeadId(a.lead_id)) throw new Error('Lead nicht gefunden.');
     const type = this.db.activityTypes.find((t) => t.id === a.type_id);
-    if (!type) throw new Error('Formular nicht gefunden.');
+    if (!type) throw new Error('Aktivität nicht gefunden.');
     const status = a.status ?? 'published';
     if (status === 'published') {
       for (const f of type.fields.filter((x) => x.required)) {
@@ -983,7 +984,7 @@ export class DemoStore implements Store {
     let act = a.id ? this.db.activities.find((x) => x.id === a.id) : undefined;
     const wasPublished = act?.status === 'published';
     if (act) {
-      if (act.user_id !== this.me?.id && !this.has('manage_others_activities')) throw new Error('Nur eigene Formulare können geändert werden.');
+      if (act.user_id !== this.me?.id && !this.has('manage_others_activities')) throw new Error('Nur eigene Aktivitäten können geändert werden.');
       Object.assign(act, { data: clone(a.data), status, contact_id: a.contact_id ?? act.contact_id, updated_at: nowIso() });
     } else {
       act = { id: uuid(), type_id: a.type_id, lead_id: a.lead_id, contact_id: a.contact_id ?? null, user_id: this.user().id, call_id: a.call_id ?? null, data: clone(a.data), status, created_at: nowIso(), updated_at: nowIso() };
@@ -1913,7 +1914,7 @@ export class DemoStore implements Store {
       case 'opportunity_statuses':
         return { kind: 'open', color: '#64748b', sort: 100 };
       case 'custom_fields':
-        return { entity: 'lead', description: '', type: 'text', choices: [], sort: 100, show_in_list: false, restricted: false };
+        return { entity: 'lead', description: '', type: 'text', choices: [], sort: 100, show_in_list: false, always_show: false, restricted: false };
       case 'activity_types':
         return { description: '', color: '#2346a0', fields: [], archived: false, sort: 100, created_at: now, updated_at: now };
       case 'integration_links':
@@ -1949,7 +1950,7 @@ export class DemoStore implements Store {
       if (t && t.created_by !== this.me?.id && !this.has('manage_team_templates')) throw new Error('Keine Berechtigung für geteilte Vorlagen anderer.');
     }
     if (table === 'activity_types' && this.db.activities.some((a) => a.type_id === key)) {
-      throw new Error('Löschen: Wird noch verwendet. Formulare mit Einträgen bitte archivieren.');
+      throw new Error('Löschen: Wird noch verwendet. Aktivitäten mit Einträgen bitte archivieren.');
     }
     const coll = CONFIG_COLLECTION[table];
     (this.db[coll] as unknown as Record<string, unknown>[]) = (this.db[coll] as unknown as Record<string, unknown>[]).filter((x) => x[pk] !== key);

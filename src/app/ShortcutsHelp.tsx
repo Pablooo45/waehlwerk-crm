@@ -5,8 +5,7 @@ const GROUPS: { title: string; keys: [string, string][] }[] = [
     title: 'Überall',
     keys: [
       ['Strg + K  oder  /', 'Suchen und springen'],
-      ['N', 'Neuer Lead'],
-      ['C', 'Nummer wählen'],
+      ['Strg + Umschalt + L', 'Neuer Lead'],
       ['?', 'Diese Übersicht'],
     ],
   },
@@ -17,7 +16,7 @@ const GROUPS: { title: string; keys: [string, string][] }[] = [
       ['G  L', 'Leads'],
       ['G  K', 'Kontakte'],
       ['G  O', 'Opportunities'],
-      ['G  A', 'Gespräche (Anrufe)'],
+      ['G  A', 'Gespräche'],
       ['G  T', 'Termine'],
       ['G  W', 'Workflows'],
       ['G  R', 'Berichte'],
@@ -27,10 +26,20 @@ const GROUPS: { title: string; keys: [string, string][] }[] = [
   {
     title: 'Auf einer Lead-Seite',
     keys: [
-      ['C', 'Anrufen'],
-      ['N', 'Notiz schreiben'],
-      ['E', 'E-Mail schreiben'],
+      ['C  oder  Strg + Umschalt + D', 'Anrufen'],
+      ['E  oder  Strg + Umschalt + E', 'E-Mail schreiben'],
+      ['S  oder  Strg + Umschalt + K', 'SMS schreiben'],
+      ['N  oder  Strg + Umschalt + O', 'Notiz schreiben'],
+      ['A', 'Aktivität erfassen'],
       ['T', 'Aufgabe anlegen'],
+      ['Strg + F', 'Aktivitäten durchsuchen'],
+    ],
+  },
+  {
+    title: 'Power Dialer',
+    keys: [
+      ['Strg + Umschalt + X', 'Nächster Lead / weiter'],
+      ['Strg + .', 'Pause'],
     ],
   },
   {

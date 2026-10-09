@@ -204,6 +204,7 @@ export interface CustomField {
   choices: string[];
   sort: number;
   show_in_list: boolean;
+  always_show: boolean; // am Lead auch leer zeigen (sonst erst, wenn ausgefüllt – wie in Close)
   restricted: boolean;
 }
 
@@ -570,6 +571,13 @@ export interface EmailTemplate {
 
 export type TaskType = 'todo' | 'call' | 'email' | 'missed_call' | 'voicemail' | 'meeting_followup' | 'workflow';
 
+// Kurzer Verweis auf einen Lead (Name und – wo geladen – Status, z. B. für die Inbox)
+export interface LeadRef {
+  id: ID;
+  name: string;
+  status_id?: ID | null;
+}
+
 export interface Task {
   id: ID;
   lead_id: ID | null;
@@ -585,7 +593,7 @@ export interface Task {
   done_by: ID | null;
   call_id: ID | null;
   created_at: ISODate;
-  lead?: { id: ID; name: string } | null;
+  lead?: LeadRef | null;
 }
 
 export type MeetingStatus = 'scheduled' | 'canceled' | 'rescheduled' | 'completed' | 'no_show';
@@ -684,7 +692,7 @@ export interface AppNotification {
   read_at: ISODate | null;
   done_at: ISODate | null;
   snoozed_until: ISODate | null;
-  lead?: { id: ID; name: string } | null;
+  lead?: LeadRef | null;
 }
 
 export type TimelineKind = 'call' | 'note' | 'email' | 'sms' | 'meeting' | 'event' | 'task' | 'activity';

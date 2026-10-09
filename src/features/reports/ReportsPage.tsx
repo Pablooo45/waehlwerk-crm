@@ -20,7 +20,7 @@ const TABS: { value: Tab; label: string }[] = [
   { value: 'status', label: 'Statuswechsel' },
   { value: 'funnel', label: 'Opportunity-Funnel' },
   { value: 'hours', label: 'Beste Anrufzeiten' },
-  { value: 'forms', label: 'Formulare' },
+  { value: 'forms', label: 'Eigene Aktivitäten' },
 ];
 
 export default function ReportsPage({ tab: tabParam }: { tab: string | null }) {
@@ -318,7 +318,7 @@ const METRICS: Metric[] = [
   { key: 'notes', label: 'Notizen', value: (r) => r.notes },
   { key: 'emails', label: 'E-Mails', value: (r) => r.emails },
   { key: 'sms', label: 'SMS', value: (r) => r.sms },
-  { key: 'forms', label: 'Formulare', value: (r) => r.forms },
+  { key: 'forms', label: 'Aktivitäten', value: (r) => r.forms },
   { key: 'tasks_done', label: 'Aufgaben erledigt', short: 'Aufgaben', value: (r) => r.tasks_done },
   { key: 'opps_created', label: 'Opportunities angelegt', short: 'Opps neu', value: (r) => r.opps_created },
   { key: 'deals_won', label: 'Abschlüsse', value: (r) => r.deals_won },
@@ -612,15 +612,15 @@ function FormValues({ from, to, users }: RangeProps) {
   );
   const { name } = useLookups();
 
-  if (!types.length) return <Empty title="Keine auswertbaren Formulare">Formulare mit Auswahlfeldern lassen sich hier auswerten (z. B. „Setting-Art“ oder „Interesse“).</Empty>;
+  if (!types.length) return <Empty title="Keine auswertbaren Aktivitäten">Eigene Aktivitäten mit Auswahlfeldern lassen sich hier auswerten (z. B. „Setting-Art“ oder „Interesse“).</Empty>;
 
   const total = (q.data ?? []).reduce((s, r) => s + r.cnt, 0);
   return (
     <div className="panel">
       <div className="panel-head">
-        <h2>Formular-Auswertung</h2>
+        <h2>Auswertung eigener Aktivitäten</h2>
         <div className="row gap-8">
-          <select className="select" style={{ width: 'auto' }} value={typeId} onChange={(e) => { setTypeId(e.target.value); setFieldKey(''); }} aria-label="Formular">
+          <select className="select" style={{ width: 'auto' }} value={typeId} onChange={(e) => { setTypeId(e.target.value); setFieldKey(''); }} aria-label="Aktivität">
             {types.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
           </select>
           <select className="select" style={{ width: 'auto' }} value={field?.key ?? ''} onChange={(e) => setFieldKey(e.target.value)} aria-label="Feld">

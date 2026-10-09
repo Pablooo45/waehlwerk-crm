@@ -12,6 +12,7 @@ import { formatDateTime, formatDuration, formatPhone, formatRelative } from '../
 import type { Call, ID } from '../../lib/types.ts';
 import { Avatar, cx, Empty, errMsg, Loading, useDebounced, useUi } from '../../ui/ui.tsx';
 import { OutcomeTag, RecordingPlayer } from '../common/bits.tsx';
+import { ConversationTabs } from './ConversationTabs.tsx';
 import { QualityBadge } from './Player.tsx';
 
 const PAGE = 50;
@@ -93,6 +94,7 @@ export default function CallsPage() {
           </button>
         ) : null}
       </div>
+      <ConversationTabs value="history" />
 
       <div className="filterbar">
         <div className="search" style={{ maxWidth: 320, flex: '1 1 220px' }}>

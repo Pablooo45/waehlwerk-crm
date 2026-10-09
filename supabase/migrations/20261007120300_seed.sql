@@ -97,6 +97,10 @@ insert into public.custom_fields (key, entity, label, type, choices, sort, show_
   ('contact_role',           'contact', 'Contact Role',         'multichoice', '["Decision Maker","Gatekeeper","Point of Contact"]', 10, false),
   ('dealphase',              'contact', 'Dealphase',            'text',     '[]', 20, false);
 
+-- Felder, die am Lead auch leer stehen (die übrigen erscheinen erst, wenn jemand sie ausfüllt)
+update public.custom_fields set always_show = true
+ where key in ('inhaber', 'anzahl_filialen', 'bundesland', 'lead_quelle', 'interesse', 'setting_art', 'setting_termin', 'gesperrt_bis', 'contact_role');
+
 -- ---------------------------------------------------------------------
 --  Formulare (in Close: Custom Activities)
 -- ---------------------------------------------------------------------

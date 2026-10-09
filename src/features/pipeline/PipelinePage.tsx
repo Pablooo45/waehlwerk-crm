@@ -1,4 +1,5 @@
-// Opportunities wie in Close: mehrere Pipelines, Board (ziehen & ablegen) oder Liste, Summen je Phase.
+// Opportunities wie in Close: mehrere Pipelines, Board (Karten zwischen den Phasen ziehen) oder Liste,
+// Summen je Phase, Filter nach Zuständigem und Abschlussdatum.
 
 import { ArrowDown, ArrowUp, Columns3, Download, List, Plus } from 'lucide-react';
 import { useMemo, useState } from 'react';
@@ -53,7 +54,7 @@ export default function PipelinePage({ pipelineId }: { pipelineId: string | null
     return (q.data ?? []).filter((o) => {
       if (who === 'me' && o.user_id !== me.id) return false;
       if (who !== 'all' && who !== 'me' && o.user_id !== who) return false;
-      if (view === 'list' && state !== 'all' && kindOf(o) !== state) return false;
+      if (state !== 'all' && kindOf(o) !== state) return false;
       if (range !== 'all') {
         if (!o.expected_close) return false;
         const d = new Date(o.expected_close);
@@ -169,14 +170,12 @@ export default function PipelinePage({ pipelineId }: { pipelineId: string | null
           <option value="quarter">Abschluss in 3 Monaten</option>
           <option value="overdue">Abschluss überfällig</option>
         </select>
-        {view === 'list' ? (
-          <select className="select" style={{ width: 'auto' }} value={state} onChange={(e) => setState(e.target.value as typeof state)} aria-label="Status">
-            <option value="all">Offen, gewonnen und verloren</option>
-            <option value="open">Nur offene</option>
-            <option value="won">Nur gewonnene</option>
-            <option value="lost">Nur verlorene</option>
-          </select>
-        ) : null}
+        <select className="select" style={{ width: 'auto' }} value={state} onChange={(e) => setState(e.target.value as typeof state)} aria-label="Phasen">
+          <option value="all">Alle Phasen</option>
+          <option value="open">Nur offene</option>
+          <option value="won">Nur gewonnene</option>
+          <option value="lost">Nur verlorene</option>
+        </select>
         <span className="grow" />
         {can('export') && view === 'list' ? (
           <button type="button" className="btn small" onClick={exportCsv} disabled={!sorted.length}>
@@ -185,10 +184,10 @@ export default function PipelinePage({ pipelineId }: { pipelineId: string | null
         ) : null}
       </div>
 
-      <div className="opp-summary">
-        <div><span className="k">Offen</span><span className="v num">{sumByPeriod(open)}</span><span className="xs muted">{open.length} Opportunities</span></div>
-        <div><span className="k">Gewichtet</span><span className="v num">{sumByPeriod(open, true)}</span><span className="xs muted">Wert × Wahrscheinlichkeit</span></div>
-        <div><span className="k">Gewonnen</span><span className="v num">{sumByPeriod(won)}</span><span className="xs muted">{won.length} Abschlüsse</span></div>
+      <div className="opp-totals" aria-label="Summen">
+        <span><span className="muted">Offen</span> <strong className="num">{sumByPeriod(open)}</strong> <span className="muted">({open.length})</span></span>
+        <span title="Wert × Wahrscheinlichkeit"><span className="muted">Erwartet</span> <strong className="num">{sumByPeriod(open, true)}</strong></span>
+        <span><span className="muted">Gewonnen</span> <strong className="num">{sumByPeriod(won)}</strong> <span className="muted">({won.length})</span></span>
       </div>
 
       {q.loading && !q.data ? (
@@ -201,7 +200,7 @@ export default function PipelinePage({ pipelineId }: { pipelineId: string | null
         </div>
       ) : view === 'board' ? (
         <div className="board">
-          {cols.map((col) => {
+          {cols.filter((col) => state === 'all' || col.kind === state).map((col) => {
             const items = filtered.filter((o) => o.status_id === col.id);
             return (
               <div
@@ -232,7 +231,8 @@ export default function PipelinePage({ pipelineId }: { pipelineId: string | null
                   return (
                     <div
                       key={o.id}
-                      className="deal"
+                      className={cx('deal', dragging === o.id && 'dragging')}
+                      title="Ziehen, um die Phase zu ändern – klicken zum Bearbeiten"
                       draggable
                       onDragStart={(e) => {
                         setDragging(o.id);
@@ -262,17 +262,7 @@ export default function PipelinePage({ pipelineId }: { pipelineId: string | null
                         <span className="muted num">{o.confidence} %</span>
                       </div>
                       {o.expected_close ? <div className={cx('xs', late ? 'overdue-text' : 'muted')}>Abschluss bis {formatDate(o.expected_close)}</div> : null}
-                      <select
-                        className="select mt-8 deal-select"
-                        aria-label="Phase ändern"
-                        value={o.status_id ?? ''}
-                        onClick={(e) => e.stopPropagation()}
-                        onChange={(e) => move(o.id, e.target.value)}
-                      >
-                        {cols.map((c) => (
-                          <option key={c.id} value={c.id}>{c.label}</option>
-                        ))}
-                      </select>
+                      {o.note ? <div className="xs deal-note">{o.note}</div> : null}
                     </div>
                   );
                 })}

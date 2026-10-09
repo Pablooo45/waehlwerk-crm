@@ -23,10 +23,10 @@ interface StageResult {
 }
 
 const STAGES: { id: string; label: string; hint: string; default: boolean }[] = [
-  { id: 'config', label: 'Einstellungen', hint: 'Status, Pipelines, Anruf-Ergebnisse, Felder, Formulare, Vorlagen, Smart Views', default: true },
+  { id: 'config', label: 'Einstellungen', hint: 'Status, Pipelines, Anruf-Ergebnisse, Felder, eigene Aktivitäten, Vorlagen, Smart Views', default: true },
   { id: 'leads', label: 'Leads & Kontakte', hint: 'mit allen Feldern, Zuständigen und Nummern', default: true },
   { id: 'opportunities', label: 'Opportunities', hint: 'mit Pipeline, Phase und Wert', default: true },
-  { id: 'activities', label: 'Verlauf', hint: 'Notizen, Anrufe, E-Mails, SMS, Formulare, Statuswechsel', default: true },
+  { id: 'activities', label: 'Verlauf', hint: 'Notizen, Anrufe, E-Mails, SMS, eigene Aktivitäten, Statuswechsel', default: true },
   { id: 'tasks', label: 'Offene Aufgaben', hint: 'Wiedervorlagen und Rückrufe', default: true },
   { id: 'recordings', label: 'Gesprächsaufnahmen', hint: 'lädt die Tondateien aus Close herunter (dauert am längsten)', default: false },
 ];

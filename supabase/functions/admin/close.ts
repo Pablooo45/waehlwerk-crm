@@ -466,7 +466,7 @@ async function importConfig(repo: SupabaseRepo, close: CloseClient): Promise<Sta
   try {
     const types = await close.all<{ id: string; name: string; description?: string }>('/custom_activity/');
     const actFields = await close.all<CloseField>('/custom_field/activity/');
-    const ourTypes = check(await db.from('activity_types').select('id, name, fields'), 'Formulare') as { id: string; name: string; fields: { key: string; label: string }[] }[];
+    const ourTypes = check(await db.from('activity_types').select('id, name, fields'), 'Eigene Aktivitäten') as { id: string; name: string; fields: { key: string; label: string }[] }[];
     const typePairs: [string, string][] = [];
     const fieldPairs: [string, string][] = [];
     for (const t of types) {
@@ -484,7 +484,7 @@ async function importConfig(repo: SupabaseRepo, close: CloseClient): Promise<Sta
         }));
         hit = check(
           await db.from('activity_types').insert({ name: t.name, description: t.description ?? '', fields: defs, sort: 100 + ourTypes.length * 10 }).select('id, name, fields').single(),
-          'Formular',
+          'Eigene Aktivität',
         ) as typeof ourTypes[number];
         ourTypes.push(hit);
         imported.activity_types = (imported.activity_types ?? 0) + 1;
@@ -493,13 +493,13 @@ async function importConfig(repo: SupabaseRepo, close: CloseClient): Promise<Sta
       for (const f of fields) {
         const local = (hit.fields ?? []).find((x) => norm(x.label) === norm(f.name));
         if (local) fieldPairs.push([f.id, local.key]);
-        else warnings.push(`Formular „${t.name}“: Feld „${f.name}“ gibt es hier nicht – Werte werden nicht übernommen.`);
+        else warnings.push(`Aktivität „${t.name}“: Feld „${f.name}“ gibt es hier nicht – Werte werden nicht übernommen.`);
       }
     }
     await remember(repo, 'activity_type', typePairs);
     await remember(repo, 'cf_activity', fieldPairs);
   } catch (e) {
-    warnings.push(`Formulare nicht gelesen: ${e instanceof Error ? e.message : e}`);
+    warnings.push(`Eigene Aktivitäten nicht gelesen: ${e instanceof Error ? e.message : e}`);
   }
 
   // Vorlagen (E-Mail und SMS)

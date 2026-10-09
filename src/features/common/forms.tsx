@@ -1,4 +1,5 @@
-// Formulare: Lead, Kontakt, Aufgabe, Opportunity, E-Mail, SMS, eigene Formulare (Close: Custom Activities).
+// Formulare: Lead, Kontakt, Aufgabe, Opportunity, E-Mail, SMS, eigene Aktivitäten (Close: Custom Activities).
+// E-Mail, SMS und Aktivität gibt es auch „inline“ – dann öffnen sie sich oben im Verlauf der Lead-Seite.
 
 import { Clock, Mail, MessageCircle, Paperclip, Plus, Search, Send, Trash2, X } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -21,7 +22,7 @@ import type {
 } from '../../lib/types.ts';
 import { templateVars } from '../../../supabase/functions/_shared/template.ts';
 import { htmlToText, RichTextEditor, textToHtml } from '../../ui/RichText.tsx';
-import { cx, errMsg, Field, Modal, useDebounced, useUi } from '../../ui/ui.tsx';
+import { cx, errMsg, Field, InlinePanel, Modal, useDebounced, useUi } from '../../ui/ui.tsx';
 import { StatusSelect, UserSelect } from './bits.tsx';
 import { FieldInput, isEmptyValue, shapeOf } from './fields.tsx';
 
@@ -614,19 +615,24 @@ export function EmailModal({
   contact,
   onClose,
   replyTo,
+  to: presetTo,
+  inline,
 }: {
   lead: Lead;
   contact: Contact | null;
   onClose: () => void;
   replyTo?: { subject: string; to: string; body?: string } | null;
+  to?: string | null;
+  inline?: boolean;
 }) {
   const { store, ref, me, demo } = useApp();
   const { toast } = useUi();
+  const Frame = inline ? InlinePanel : Modal;
   const contacts = lead.contacts ?? [];
   const firstWithMail = contact?.emails.length ? contact : contacts.find((c) => c.emails.length) ?? null;
   const account = ref.emailAccounts.find((a) => a.user_id === me.id) ?? null;
   const viaCrm = demo || !!account;
-  const [to, setTo] = useState(replyTo?.to ?? firstWithMail?.emails[0]?.email ?? '');
+  const [to, setTo] = useState(replyTo?.to ?? presetTo ?? firstWithMail?.emails[0]?.email ?? '');
   const [cc, setCc] = useState('');
   const [bcc, setBcc] = useState('');
   const [showCc, setShowCc] = useState(false);
@@ -716,7 +722,7 @@ export function EmailModal({
   };
 
   return (
-    <Modal
+    <Frame
       title={replyTo ? 'Antworten' : 'E-Mail schreiben'}
       onClose={onClose}
       wide
@@ -792,7 +798,7 @@ export function EmailModal({
           </div>
         ) : null}
       </div>
-    </Modal>
+    </Frame>
   );
 }
 
@@ -808,13 +814,14 @@ export function smsSegments(text: string): { count: number; perSms: number; unic
   return { count, perSms: count > 1 ? multi : single, unicode };
 }
 
-export function SmsModal({ lead, contact, onClose }: { lead: Lead; contact: Contact | null; onClose: () => void }) {
+export function SmsModal({ lead, contact, onClose, to: presetTo, inline }: { lead: Lead; contact: Contact | null; onClose: () => void; to?: string | null; inline?: boolean }) {
   const { store, ref, me } = useApp();
   const { toast } = useUi();
+  const Frame = inline ? InlinePanel : Modal;
   const contacts = lead.contacts ?? [];
   const numbers = contacts.flatMap((c) => c.phones.filter((p) => p.type !== 'fax').map((p) => ({ c, p })));
   const preferred = (contact ? numbers.filter((n) => n.c.id === contact.id) : numbers).sort((a, b) => Number(b.p.type === 'mobile') - Number(a.p.type === 'mobile'))[0] ?? numbers[0];
-  const [to, setTo] = useState(preferred?.p.number ?? '');
+  const [to, setTo] = useState(presetTo && numbers.some((n) => n.p.number === presetTo) ? presetTo : preferred?.p.number ?? '');
   const senders = ref.phoneNumbers.filter((n) => n.sms_capable);
   const [from, setFrom] = useState(senders.find((n) => n.number === me.phone_number)?.number ?? senders[0]?.number ?? '');
   const [templateId, setTemplateId] = useState('');
@@ -853,7 +860,7 @@ export function SmsModal({ lead, contact, onClose }: { lead: Lead; contact: Cont
   };
 
   return (
-    <Modal
+    <Frame
       title="SMS schreiben"
       onClose={onClose}
       footer={
@@ -900,7 +907,7 @@ export function SmsModal({ lead, contact, onClose }: { lead: Lead; contact: Cont
           </Field>
         ) : null}
         <Field label="Nachricht">
-          <textarea className="textarea" rows={5} value={body} onChange={(e) => setBody(e.target.value)} autoFocus />
+          <textarea className="textarea" rows={inline ? 3 : 5} value={body} onChange={(e) => setBody(e.target.value)} autoFocus={!inline} />
         </Field>
         <div className="row wrap gap-8">
           <label className="check small">
@@ -910,26 +917,29 @@ export function SmsModal({ lead, contact, onClose }: { lead: Lead; contact: Cont
           {later ? <input className="input small" type="datetime-local" value={sendAt} onChange={(e) => setSendAt(e.target.value)} aria-label="Sendezeitpunkt" /> : null}
         </div>
       </div>
-    </Modal>
+    </Frame>
   );
 }
 
-// ---------- Eigene Formulare (Close: Custom Activities) ----------
+// ---------- Eigene Aktivitäten (Close: Custom Activities) ----------
 export function ActivityFormModal({
   lead,
   type: initialType,
   activity,
   callId,
   onClose,
+  inline,
 }: {
   lead: Pick<Lead, 'id' | 'name' | 'contacts'>;
   type?: ActivityType | null;
   activity?: CustomActivity | null;
   callId?: string | null;
   onClose: () => void;
+  inline?: boolean;
 }) {
   const { store, ref, me, can } = useApp();
   const { toast, confirm } = useUi();
+  const Frame = inline ? InlinePanel : Modal;
   const types = ref.activityTypes.filter((t) => !t.archived || t.id === activity?.type_id);
   const [typeId, setTypeId] = useState(activity?.type_id ?? initialType?.id ?? types[0]?.id ?? '');
   const type = types.find((t) => t.id === typeId) ?? null;
@@ -975,15 +985,15 @@ export function ActivityFormModal({
 
   if (!types.length) {
     return (
-      <Modal title="Formular" onClose={onClose}>
-        <p className="muted">Es gibt noch keine Formulare. Wer „Einstellungen anpassen“ darf, legt sie unter Einstellungen → Formulare an.</p>
-      </Modal>
+      <Frame title="Aktivität" onClose={onClose}>
+        <p className="muted">Es gibt noch keine eigenen Aktivitäten. Wer „Einstellungen anpassen“ darf, legt sie unter Einstellungen → Eigene Aktivitäten an.</p>
+      </Frame>
     );
   }
 
   return (
-    <Modal
-      title={activity ? `${type?.name ?? 'Formular'} bearbeiten` : type?.name ?? 'Formular'}
+    <Frame
+      title={activity ? `${type?.name ?? 'Aktivität'} bearbeiten` : type?.name ?? 'Aktivität'}
       onClose={onClose}
       wide
       footer={
@@ -1001,8 +1011,8 @@ export function ActivityFormModal({
     >
       <fieldset className="plain-fieldset col gap-12" disabled={!editable}>
         <div className="form-grid">
-          {!activity && types.length > 1 ? (
-            <Field label="Formular">
+          {!activity && !initialType && types.length > 1 ? (
+            <Field label="Aktivität">
               <select className="select" value={typeId} onChange={(e) => { setTypeId(e.target.value); setData({}); setTried(false); }}>
                 {types.map((t) => (
                   <option key={t.id} value={t.id}>{t.name}</option>
@@ -1037,7 +1047,7 @@ export function ActivityFormModal({
           })}
         </div>
       </fieldset>
-    </Modal>
+    </Frame>
   );
 }
 

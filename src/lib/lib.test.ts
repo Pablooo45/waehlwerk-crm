@@ -1,6 +1,7 @@
 // Tests für die Hilfsfunktionen im Browser (npm test)
 
 import { describe, expect, it } from 'vitest';
+import { moveItem, resort } from './order.ts';
 import { toCsv } from './csv.ts';
 import { matchesCondition, resolveStatusIds, searchTerms } from './filters.ts';
 import { formatDuration, formatPercent, formatPhone, formatTalkTime, normalizePhone } from './format.ts';
@@ -99,5 +100,22 @@ describe('Suche und Filter', () => {
     expect(matchesCondition(lead({}), { field: 'custom:filialen', op: 'lt', value: 2 }, { statuses, me }, now)).toBe(false);
     expect(matchesCondition(lead({ owner_id: 'u1' }), { field: 'owner', op: 'me' }, { statuses, me }, now)).toBe(true);
     expect(matchesCondition(lead({}), { field: 'owner', op: 'none' }, { statuses, me }, now)).toBe(true);
+  });
+});
+
+describe('Reihenfolge in den Einstellungen (Ziehen wie in Close)', () => {
+  it('verschiebt ohne das Original zu ändern', () => {
+    const list = ['a', 'b', 'c', 'd'];
+    expect(moveItem(list, 3, 0)).toEqual(['d', 'a', 'b', 'c']);
+    expect(moveItem(list, 0, 2)).toEqual(['b', 'c', 'a', 'd']);
+    expect(list).toEqual(['a', 'b', 'c', 'd']);
+    expect(moveItem(list, 1, 1)).toBe(list);
+    expect(moveItem(list, 0, 9)).toBe(list);
+  });
+
+  it('vergibt 10, 20, 30 … und speichert nur Geändertes', () => {
+    const rows = [{ id: 'x', sort: 20 }, { id: 'y', sort: 10 }, { id: 'z', sort: 30 }];
+    expect(resort(rows, (r) => r.sort).map((c) => [c.item.id, c.sort])).toEqual([['x', 10], ['y', 20]]);
+    expect(resort([{ sort: 10 }, { sort: 20 }], (r) => r.sort)).toEqual([]);
   });
 });

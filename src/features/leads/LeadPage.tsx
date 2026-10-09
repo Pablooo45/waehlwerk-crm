@@ -1,14 +1,18 @@
-// Lead-Seite wie in Close: Kopf mit Status und Zuständigkeit, Aktionen (Anrufen, SMS, E-Mail, Termin, Formular …),
-// Kontakte und Felder links, Verlauf mit Kommentaren in der Mitte, Aufgaben/Termine/Opportunities/Workflows rechts.
+// Lead-Seite wie in Close:
+//  links  – Name, Status (+ ⋯-Menü), Website/Adresse, Beschreibung, dann Aufgaben, Opportunities, Kontakte, Felder, Workflows
+//  rechts – Knöpfe Anrufen, E-Mail, SMS, Notiz, Aktivität, Termin; der Editor öffnet sich direkt über dem Verlauf
+//           (kein Fenster über dem Lead), darunter Anstehend, Angeheftet und alle Aktivitäten.
 
 import {
   Ban,
   CalendarPlus,
   CheckCircle2,
+  ChevronDown,
   Circle,
   ClipboardList,
   Copy,
   ExternalLink,
+  Globe,
   GitMerge,
   Lock,
   Mail,
@@ -19,6 +23,7 @@ import {
   Pencil,
   Phone,
   PhoneCall,
+  PhoneForwarded,
   Play,
   Plus,
   StickyNote,
@@ -28,25 +33,24 @@ import {
   Workflow as WorkflowIcon,
   X,
 } from 'lucide-react';
-import { type ReactNode, useEffect, useState } from 'react';
+import { type ReactNode, useEffect, useRef, useState } from 'react';
 import { useApp, usePhone } from '../../app/context.tsx';
 import { useAsync, useLookups } from '../../app/hooks.ts';
 import { navigate, routeHref } from '../../app/router.ts';
 import { bus } from '../../lib/bus.ts';
-import { addDays, startOfDay } from '../../lib/dates.ts';
-import { ensureUrl, fillTemplate, formatDate, formatDateTime, formatDay, formatMoney, formatPhone, formatTime, hostOf } from '../../lib/format.ts';
-import type { ActivityType, Contact, CustomActivity, Email, Lead, LeadInput, Opportunity, Task, TimelineItem } from '../../lib/types.ts';
+import { ensureUrl, fillTemplate, formatDate, formatDateTime, formatMoney, formatPhone, hostOf } from '../../lib/format.ts';
+import type { ActivityType, Comment, Contact, CustomActivity, CustomField, Email, Lead, LeadInput, Opportunity, Task, TimelineItem } from '../../lib/types.ts';
 import { MentionInput, mentionsIn } from '../../ui/MentionInput.tsx';
-import { copyText, Empty, errMsg, Loading, MenuItem, Modal, Popover, Tabs, Tag, useHotkeys, useMenu, useUi } from '../../ui/ui.tsx';
-import { CallButton, DueTag, StatusSelect, UserSelect } from '../common/bits.tsx';
-import { FieldInput, shapeOf } from '../common/fields.tsx';
+import { copyText, cx, Empty, errMsg, Field, InlinePanel, Loading, MenuItem, Modal, Popover, Segmented, Tag, useHotkeys, useMenu, useUi } from '../../ui/ui.tsx';
+import { CallButton, DueTag, StatusPill, UserSelect } from '../common/bits.tsx';
+import { FieldInput, formatFieldValue, isEmptyValue, shapeOf } from '../common/fields.tsx';
 import { ActivityFormModal, ContactFormModal, EmailModal, OpportunityModal, phoneTypeLabel, SmsModal, TaskFormModal } from '../common/forms.tsx';
-import { firstPhone } from '../dialer/DialerContext.tsx';
+import { firstPhone, useDialer } from '../dialer/DialerContext.tsx';
 import { BookMeetingModal } from '../meetings/BookMeeting.tsx';
 import { PairCard } from '../settings/Duplicates.tsx';
 import { EnrollInWorkflowModal } from '../workflows/WorkflowPage.tsx';
 import { RUN_STATUS } from '../workflows/meta.tsx';
-import { MeetingActions, Timeline } from './Timeline.tsx';
+import { Timeline } from './Timeline.tsx';
 
 export default function LeadPage({ id }: { id: string }) {
   const { store } = useApp();
@@ -102,27 +106,35 @@ export default function LeadPage({ id }: { id: string }) {
   );
 }
 
-type ModalKind = null | 'book' | 'email' | 'sms' | 'task' | 'opp' | 'contact' | 'activity' | 'workflow' | 'dupes';
+// Was gerade oben im Verlauf offen ist (wie in Close: immer nur ein Editor)
+type Composer =
+  | { kind: 'note' }
+  | { kind: 'email'; to?: string | null; replyTo?: Email | null }
+  | { kind: 'sms'; to?: string | null }
+  | { kind: 'activity'; type: ActivityType | null; activity?: CustomActivity | null }
+  | { kind: 'log' }
+  | null;
 
-function LeadView({ lead, timeline, comments, reload }: { lead: Lead; timeline: TimelineItem[]; comments: import('../../lib/types.ts').Comment[]; reload: () => void }) {
+type ModalKind = null | 'book' | 'task' | 'opp' | 'contact' | 'workflow' | 'dupes' | 'edit';
+
+function LeadView({ lead, timeline, comments, reload }: { lead: Lead; timeline: TimelineItem[]; comments: Comment[]; reload: () => void }) {
   const { store, ref, can, dial } = useApp();
   const { toast, confirm } = useUi();
-  const { name } = useLookups();
   const snap = usePhone();
-  const [title, setTitle] = useState(lead.name);
+  const dialer = useDialer();
+  // Im Power Dialer laufen Anrufe über den Dialer (damit Ergebnis und „nächster Lead“ stimmen)
+  const inDialer = dialer.active && dialer.lead?.id === lead.id;
   const [modal, setModal] = useState<ModalKind>(null);
+  const [composer, setComposer] = useState<Composer>(null);
   const [editContact, setEditContact] = useState<Contact | null>(null);
   const [editTask, setEditTask] = useState<Task | null>(null);
   const [editOpp, setEditOpp] = useState<Opportunity | null>(null);
-  const [activityType, setActivityType] = useState<ActivityType | null>(null);
-  const [editActivity, setEditActivity] = useState<CustomActivity | null>(null);
-  const [replyTo, setReplyTo] = useState<Email | null>(null);
+  const [tab, setTab] = useState<'feed' | 'details'>('feed');
   const more = useMenu();
   const callMenu = useMenu();
-  const formMenu = useMenu();
+  const activityMenu = useMenu();
+  const mainRef = useRef<HTMLElement>(null);
   const dupes = useAsync(() => (can('merge_leads') ? store.findDuplicates(lead.id, 5) : Promise.resolve([])), [store, lead.id], ['leads']);
-
-  useEffect(() => setTitle(lead.name), [lead.name]);
 
   const save = async (patch: LeadInput) => {
     try {
@@ -146,14 +158,46 @@ function LeadView({ lead, timeline, comments, reload }: { lead: Lead; timeline: 
       toast('Keine Telefonnummer hinterlegt.', { kind: 'error' });
       return;
     }
-    dial({ number: primary.number, leadId: lead.id, contactId: primary.contact.id, leadName: lead.name, contactName: primary.contact.name });
+    if (inDialer) dialer.callNow(primary.number, primary.contact);
+    else dial({ number: primary.number, leadId: lead.id, contactId: primary.contact.id, leadName: lead.name, contactName: primary.contact.name });
+  };
+
+  // Editor öffnen und auf dem Handy zum Verlauf wechseln
+  const open = (c: Composer) => {
+    setComposer(c);
+    setTab('feed');
+    mainRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+  const activeTypes = ref.activityTypes.filter((t) => !t.archived);
+  const openActivity = (e?: { currentTarget: HTMLElement }) => {
+    if (activeTypes.length === 1 || !e) open({ kind: 'activity', type: activeTypes[0] ?? null });
+    else activityMenu.open(e);
   };
 
   useHotkeys({
     c: () => !snap.call && can('calling') && callPrimary(),
-    n: () => document.getElementById('composer-note')?.focus(),
-    e: () => setModal('email'),
+    n: () => open({ kind: 'note' }),
+    e: () => open({ kind: 'email' }),
+    s: () => can('calling') && open({ kind: 'sms' }),
     t: () => setModal('task'),
+    a: () => activeTypes.length && openActivity(),
+    // wie in Close: Strg/Cmd + Umschalt + D/E/K/O
+    'mod+shift+d': (e) => {
+      e.preventDefault();
+      if (!snap.call && can('calling')) callPrimary();
+    },
+    'mod+shift+e': (e) => {
+      e.preventDefault();
+      open({ kind: 'email' });
+    },
+    'mod+shift+k': (e) => {
+      e.preventDefault();
+      if (can('calling')) open({ kind: 'sms' });
+    },
+    'mod+shift+o': (e) => {
+      e.preventDefault();
+      open({ kind: 'note' });
+    },
   });
 
   const remove = async () => {
@@ -167,8 +211,6 @@ function LeadView({ lead, timeline, comments, reload }: { lead: Lead; timeline: 
     }
   };
 
-  const pinned = timeline.filter((t) => t.kind === 'note' && t.data.pinned);
-  const activeTypes = ref.activityTypes.filter((t) => !t.archived);
   const contact0 = lead.contacts?.[0] ?? null;
   const linkVars = {
     'lead.name': lead.name,
@@ -185,154 +227,169 @@ function LeadView({ lead, timeline, comments, reload }: { lead: Lead; timeline: 
     .filter((l) => l.scope === 'lead')
     .map((l) => ({ ...l, href: fillTemplate(l.url_template, Object.fromEntries(Object.entries(linkVars).map(([k, v]) => [k, encodeURIComponent(v)]))) }));
   const dupeCount = dupes.data?.length ?? 0;
+  const closeComposer = () => setComposer(null);
 
   return (
-    <div className="page lead-page">
-      <div className="lead-head">
-        <div className="grow" style={{ minWidth: 260 }}>
-          <input
-            className="lead-title"
-            value={title}
-            aria-label="Firmenname"
-            onChange={(e) => setTitle(e.target.value)}
-            onBlur={() => title.trim() && title !== lead.name && save({ name: title.trim() })}
-            onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
-          />
-          <div className="lead-meta">
-            {lead.do_not_call ? <Tag tone="red"><Ban size={12} /> Nicht anrufen</Tag> : null}
-            {lead.address_city ? (
-              <a href={`https://www.google.com/maps/search/${encodeURIComponent([lead.name, lead.address_street, lead.address_zip, lead.address_city].filter(Boolean).join(' '))}`} target="_blank" rel="noopener" className="row gap-4">
-                <MapPin size={14} /> {[lead.address_street, [lead.address_zip, lead.address_city].filter(Boolean).join(' ')].filter(Boolean).join(', ')}
-              </a>
-            ) : null}
-            {lead.url ? (
-              <a href={ensureUrl(lead.url)} target="_blank" rel="noopener" className="row gap-4">
-                <ExternalLink size={14} /> {hostOf(lead.url)}
-              </a>
-            ) : null}
-            {lead.opener_id ? <span>Opener: {name(lead.opener_id)}</span> : null}
-            <span>Angelegt {formatDate(lead.created_at)}{lead.source ? `, ${lead.source}` : ''}</span>
-          </div>
-        </div>
-        <div className="row wrap lead-head-fields">
-          <div className="field">
-            <label htmlFor="lead-status">Status</label>
-            <StatusSelect value={lead.status_id} onChange={(v) => save({ status_id: v })} statuses={ref.statuses} id="lead-status" />
-          </div>
-          <div className="field">
-            <label htmlFor="lead-owner">Zuständig</label>
-            <UserSelect value={lead.owner_id} onChange={(v) => save({ owner_id: v })} emptyLabel="Niemand" id="lead-owner" />
-          </div>
-        </div>
-      </div>
+    <div className="lead-page" data-tab={tab}>
+      <aside className="lead-left" aria-label="Lead-Details">
+        <LeadHeader lead={lead} onSave={save} onMore={more.open} onEdit={() => setModal('edit')} />
 
-      <div className="row wrap lead-actions">
-        {can('calling') ? (
-          <button type="button" className="btn call" onClick={allPhones.length > 1 ? callMenu.open : callPrimary} disabled={!!snap.call || !primary || lead.do_not_call} title={lead.do_not_call ? 'Nicht anrufen' : 'Anrufen (C)'}>
-            <PhoneCall /> Anrufen <kbd className="hide-touch kbd-on-dark">C</kbd>
-          </button>
+        {dupeCount ? (
+          <div className="callout warn lead-dupes">
+            <GitMerge />
+            <span className="grow small">
+              {dupeCount === 1 ? 'Möglicherweise doppelt angelegt' : `${dupeCount} mögliche Dubletten`}: {dupes.data!.map((d) => d.reasons).join('; ')}
+            </span>
+            <button type="button" className="btn small" onClick={() => setModal('dupes')}>Ansehen</button>
+          </div>
         ) : null}
-        <button type="button" className="btn" onClick={() => setModal('email')} title="E-Mail (E)">
-          <Mail /> E-Mail
-        </button>
-        {can('calling') ? (
-          <button type="button" className="btn" onClick={() => setModal('sms')} disabled={!allPhones.length || lead.do_not_call}>
-            <MessageCircle /> SMS
-          </button>
-        ) : null}
-        <button type="button" className="btn" onClick={() => setModal('book')}>
-          <CalendarPlus /> Termin
-        </button>
-        {activeTypes.length ? (
-          <button type="button" className="btn" onClick={activeTypes.length > 1 ? formMenu.open : () => { setActivityType(activeTypes[0]); setModal('activity'); }}>
-            <ClipboardList /> {activeTypes.length > 1 ? 'Formular' : activeTypes[0].name}
-          </button>
-        ) : null}
-        <button type="button" className="btn" onClick={() => setModal('task')} title="Aufgabe (T)">
-          <Plus /> Aufgabe
-        </button>
-        <button type="button" className="btn hide-mobile" onClick={() => setModal('opp')}>
-          <TrendingUp /> Opportunity
-        </button>
-        <button type="button" className="icon-btn" onClick={more.open} aria-label="Mehr">
-          <MoreHorizontal />
-        </button>
-      </div>
 
-      {dupeCount ? (
-        <div className="callout warn lead-dupes">
-          <GitMerge />
-          <span className="grow">
-            {dupeCount === 1 ? 'Möglicherweise doppelt angelegt' : `${dupeCount} mögliche Dubletten`}: {dupes.data!.map((d) => d.reasons).join('; ')}
-          </span>
-          <button type="button" className="btn small" onClick={() => setModal('dupes')}>Ansehen</button>
-        </div>
-      ) : null}
-
-      {pinned.length ? (
-        <div className="callout warn" style={{ marginBottom: 16 }}>
-          <StickyNote />
-          <div className="col gap-4">
-            {pinned.map((p) => (
-              <span key={p.id} className="pre-wrap">{p.kind === 'note' ? p.data.body : ''}</span>
-            ))}
-          </div>
-        </div>
-      ) : null}
-
-      <div className="lead-grid">
-        <div className="col">
-          <ContactsPanel lead={lead} onAdd={() => setModal('contact')} onEdit={setEditContact} />
-          <InfoPanel lead={lead} onSave={save} links={links} />
-        </div>
-        <div className="col">
-          <Composer lead={lead} onEmail={() => setModal('email')} onSms={() => setModal('sms')} onForm={(t) => { setActivityType(t); setModal('activity'); }} />
-          <Timeline
-            items={timeline}
-            leadId={lead.id}
-            comments={comments}
-            actions={{
-              onReply: (e) => {
-                setReplyTo(e);
-                setModal('email');
-              },
-              onEditActivity: (a) => {
-                setEditActivity(a);
-                setModal('activity');
-              },
-            }}
+        <div className="lead-tabs show-mobile">
+          <Segmented
+            value={tab}
+            onChange={setTab}
+            label="Ansicht"
+            options={[
+              { value: 'feed', label: 'Aktivitäten' },
+              { value: 'details', label: 'Details' },
+            ]}
           />
         </div>
-        <div className="col right">
-          <TasksPanel leadId={lead.id} onAdd={() => setModal('task')} onEdit={setEditTask} />
-          <MeetingsPanel leadId={lead.id} onBook={() => setModal('book')} />
-          <OppsPanel leadId={lead.id} onAdd={() => setModal('opp')} onEdit={setEditOpp} />
-          <WorkflowsPanel leadId={lead.id} onAdd={() => setModal('workflow')} />
+
+        <div className="lead-details">
+          <TasksSection leadId={lead.id} onAdd={() => setModal('task')} onEdit={setEditTask} />
+          <OppsSection leadId={lead.id} onAdd={() => setModal('opp')} onEdit={setEditOpp} />
+          <ContactsSection
+            lead={lead}
+            onAdd={() => setModal('contact')}
+            onEdit={setEditContact}
+            onEmail={(to) => open({ kind: 'email', to })}
+            onSms={(to) => open({ kind: 'sms', to })}
+          />
+          <FieldsSection lead={lead} onSave={save} />
+          <WorkflowsSection leadId={lead.id} onAdd={() => setModal('workflow')} />
+          {links.length ? (
+            <section className="lead-sec">
+              <div className="lead-sec-head"><h2>Links</h2></div>
+              <div className="lead-links">
+                {links.map((l) => (
+                  <a key={l.id} href={l.href} target="_blank" rel="noopener">
+                    <ExternalLink size={14} /> {l.name}
+                  </a>
+                ))}
+              </div>
+            </section>
+          ) : null}
         </div>
-      </div>
+      </aside>
+
+      <section className="lead-main" ref={mainRef} aria-label="Aktivitäten">
+        <div className="lead-actions" role="toolbar" aria-label="Aktionen">
+          {can('calling') ? (
+            <div className="btn-split">
+              <button type="button" className="btn call" onClick={callPrimary} disabled={!!snap.call || !primary || lead.do_not_call} title={lead.do_not_call ? 'Nicht anrufen' : primary ? `${formatPhone(primary.number)} anrufen (C)` : 'Keine Nummer'}>
+                <PhoneCall /> Anrufen
+              </button>
+              <button type="button" className="btn call caret" onClick={callMenu.open} aria-label="Andere Nummer oder Anruf protokollieren" aria-haspopup="menu">
+                <ChevronDown />
+              </button>
+            </div>
+          ) : null}
+          <button type="button" className={cx('btn', composer?.kind === 'email' && 'active')} onClick={() => open({ kind: 'email' })} title="E-Mail (E)">
+            <Mail /> E-Mail
+          </button>
+          {can('calling') ? (
+            <button type="button" className={cx('btn', composer?.kind === 'sms' && 'active')} onClick={() => open({ kind: 'sms' })} disabled={!allPhones.length || lead.do_not_call} title="SMS (S)">
+              <MessageCircle /> SMS
+            </button>
+          ) : null}
+          <button type="button" className={cx('btn', composer?.kind === 'note' && 'active')} onClick={() => open({ kind: 'note' })} title="Notiz (N)">
+            <StickyNote /> Notiz
+          </button>
+          {activeTypes.length ? (
+            <button type="button" className={cx('btn', composer?.kind === 'activity' && 'active')} onClick={openActivity} aria-haspopup={activeTypes.length > 1 ? 'menu' : undefined} title="Aktivität (A)">
+              <ClipboardList /> Aktivität {activeTypes.length > 1 ? <ChevronDown size={14} /> : null}
+            </button>
+          ) : null}
+          <button type="button" className="btn" onClick={() => setModal('book')}>
+            <CalendarPlus /> Termin
+          </button>
+        </div>
+
+        {composer?.kind === 'note' ? <NoteComposer lead={lead} onClose={closeComposer} /> : null}
+        {composer?.kind === 'log' ? <LogCallComposer lead={lead} onClose={closeComposer} /> : null}
+        {composer?.kind === 'email' ? (
+          <EmailModal
+            inline
+            key={`email-${composer.to ?? ''}-${composer.replyTo?.id ?? ''}`}
+            lead={lead}
+            contact={contact0}
+            to={composer.to}
+            replyTo={composer.replyTo ? { subject: composer.replyTo.subject, to: composer.replyTo.from_address ?? '', body: composer.replyTo.is_html ? undefined : composer.replyTo.body } : null}
+            onClose={closeComposer}
+          />
+        ) : null}
+        {composer?.kind === 'sms' ? <SmsModal inline key={`sms-${composer.to ?? ''}`} lead={lead} contact={contact0} to={composer.to} onClose={closeComposer} /> : null}
+        {composer?.kind === 'activity' ? (
+          <ActivityFormModal
+            inline
+            key={`act-${composer.type?.id ?? ''}-${composer.activity?.id ?? ''}`}
+            lead={lead}
+            type={composer.type}
+            activity={composer.activity}
+            onClose={closeComposer}
+          />
+        ) : null}
+        {!composer ? (
+          <button type="button" className="note-quick" onClick={() => open({ kind: 'note' })}>
+            <StickyNote size={16} aria-hidden="true" /> Notiz schreiben …
+          </button>
+        ) : null}
+
+        <Timeline
+          items={timeline}
+          leadId={lead.id}
+          comments={comments}
+          actions={{
+            onReply: (e) => open({ kind: 'email', replyTo: e }),
+            onEditActivity: (a) => open({ kind: 'activity', type: ref.activityTypes.find((t) => t.id === a.type_id) ?? null, activity: a }),
+          }}
+        />
+      </section>
 
       {callMenu.isOpen ? (
         <Popover anchor={callMenu.anchor} onClose={callMenu.close}>
+          {allPhones.length ? <div className="menu-label">Anrufen</div> : null}
           {allPhones.map(({ c, p }) => (
             <MenuItem
               key={`${c.id}-${p.number}`}
               icon={<Phone />}
               onClick={() => {
                 callMenu.close();
-                dial({ number: p.number, leadId: lead.id, contactId: c.id, leadName: lead.name, contactName: c.name });
+                if (lead.do_not_call) {
+                  toast('Dieser Lead ist auf „Nicht anrufen“ gesetzt.', { kind: 'error' });
+                  return;
+                }
+                if (inDialer) dialer.callNow(p.number, c);
+                else dial({ number: p.number, leadId: lead.id, contactId: c.id, leadName: lead.name, contactName: c.name });
               }}
             >
               <span className="num">{formatPhone(p.number)}</span>{' '}
               <span className="muted">{[c.name, phoneTypeLabel(p.type)].filter(Boolean).join(', ')}</span>
             </MenuItem>
           ))}
+          {allPhones.length ? <div className="menu-sep" /> : null}
+          <MenuItem icon={<PhoneForwarded />} onClick={() => { callMenu.close(); open({ kind: 'log' }); }}>
+            Anruf protokollieren
+          </MenuItem>
         </Popover>
       ) : null}
 
-      {formMenu.isOpen ? (
-        <Popover anchor={formMenu.anchor} onClose={formMenu.close}>
+      {activityMenu.isOpen ? (
+        <Popover anchor={activityMenu.anchor} onClose={activityMenu.close}>
+          <div className="menu-label">Aktivität erfassen</div>
           {activeTypes.map((t) => (
-            <MenuItem key={t.id} icon={<span className="dot" style={{ background: t.color }} />} onClick={() => { formMenu.close(); setActivityType(t); setModal('activity'); }}>
+            <MenuItem key={t.id} icon={<span className="dot" style={{ background: t.color }} />} onClick={() => { activityMenu.close(); open({ kind: 'activity', type: t }); }}>
               {t.name}
             </MenuItem>
           ))}
@@ -341,8 +398,10 @@ function LeadView({ lead, timeline, comments, reload }: { lead: Lead; timeline: 
 
       {more.isOpen ? (
         <Popover anchor={more.anchor} onClose={more.close} align="end">
+          <MenuItem icon={<Pencil />} onClick={() => { more.close(); setModal('edit'); }}>Lead bearbeiten</MenuItem>
           <MenuItem icon={<UserPlus />} onClick={() => { more.close(); setModal('contact'); }}>Kontakt hinzufügen</MenuItem>
           <MenuItem icon={<TrendingUp />} onClick={() => { more.close(); setModal('opp'); }}>Opportunity anlegen</MenuItem>
+          <MenuItem icon={<Plus />} onClick={() => { more.close(); setModal('task'); }}>Aufgabe anlegen</MenuItem>
           {ref.workflows.some((w) => w.status === 'active') ? (
             <MenuItem icon={<WorkflowIcon />} onClick={() => { more.close(); setModal('workflow'); }}>In Workflow aufnehmen</MenuItem>
           ) : null}
@@ -356,42 +415,158 @@ function LeadView({ lead, timeline, comments, reload }: { lead: Lead; timeline: 
               <ExternalLink /> <span className="grow">{l.name}</span>
             </a>
           ))}
-          <div className="menu-sep" />
-          <div className="menu-label">Opener (für Provision/Berichte)</div>
-          <div style={{ padding: '2px 8px 8px' }}>
-            <UserSelect value={lead.opener_id} onChange={(v) => { more.close(); save({ opener_id: v }); }} emptyLabel="– kein Opener –" />
-          </div>
           {can('merge_leads') ? (
-            <MenuItem icon={<GitMerge />} onClick={() => { more.close(); setModal('dupes'); }}>Dubletten prüfen</MenuItem>
-          ) : null}
-          {can('delete_leads') ? (
             <>
               <div className="menu-sep" />
-              <MenuItem icon={<Trash2 />} danger onClick={() => { more.close(); remove(); }}>Lead löschen</MenuItem>
+              <MenuItem icon={<GitMerge />} onClick={() => { more.close(); setModal('dupes'); }}>Zusammenführen / Dubletten</MenuItem>
             </>
+          ) : null}
+          {can('delete_leads') ? (
+            <MenuItem icon={<Trash2 />} danger onClick={() => { more.close(); remove(); }}>Lead löschen</MenuItem>
           ) : null}
         </Popover>
       ) : null}
 
       {modal === 'book' ? <BookMeetingModal lead={lead} onClose={() => setModal(null)} /> : null}
-      {modal === 'email' ? (
-        <EmailModal
-          lead={lead}
-          contact={contact0}
-          replyTo={replyTo ? { subject: replyTo.subject, to: replyTo.from_address ?? '', body: replyTo.is_html ? undefined : replyTo.body } : null}
-          onClose={() => { setModal(null); setReplyTo(null); }}
-        />
-      ) : null}
-      {modal === 'sms' ? <SmsModal lead={lead} contact={contact0} onClose={() => setModal(null)} /> : null}
       {modal === 'task' || editTask ? <TaskFormModal task={editTask ?? undefined} leadId={lead.id} onClose={() => { setModal(null); setEditTask(null); }} /> : null}
       {modal === 'opp' || editOpp ? <OpportunityModal opp={editOpp ?? undefined} leadId={lead.id} onClose={() => { setModal(null); setEditOpp(null); }} /> : null}
       {modal === 'contact' || editContact ? <ContactFormModal leadId={lead.id} contact={editContact ?? undefined} onClose={() => { setModal(null); setEditContact(null); }} /> : null}
-      {modal === 'activity' ? (
-        <ActivityFormModal lead={lead} type={activityType} activity={editActivity} onClose={() => { setModal(null); setEditActivity(null); setActivityType(null); }} />
-      ) : null}
       {modal === 'workflow' ? <EnrollInWorkflowModal leadIds={[lead.id]} contactId={contact0?.id ?? null} onClose={() => setModal(null)} /> : null}
       {modal === 'dupes' ? <DuplicatesModal lead={lead} onClose={() => { setModal(null); dupes.reload(); }} /> : null}
+      {modal === 'edit' ? <LeadEditModal lead={lead} onSave={save} onClose={() => setModal(null)} /> : null}
     </div>
+  );
+}
+
+// ---------- Kopf: Name, Status, Website, Adresse, Beschreibung ----------
+function LeadHeader({ lead, onSave, onMore, onEdit }: { lead: Lead; onSave: (p: LeadInput) => void; onMore: (e: { currentTarget: HTMLElement }) => void; onEdit: () => void }) {
+  const { ref } = useApp();
+  const [title, setTitle] = useState(lead.name);
+  useEffect(() => setTitle(lead.name), [lead.name]);
+  const address = [lead.address_street, [lead.address_zip, lead.address_city].filter(Boolean).join(' ')].filter(Boolean).join(', ');
+  return (
+    <div className="lead-head">
+      <input
+        className="lead-title"
+        value={title}
+        aria-label="Firmenname"
+        onChange={(e) => setTitle(e.target.value)}
+        onBlur={() => (title.trim() && title !== lead.name ? onSave({ name: title.trim() }) : setTitle(lead.name))}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
+          if (e.key === 'Escape') {
+            setTitle(lead.name);
+            (e.target as HTMLInputElement).blur();
+          }
+        }}
+      />
+      <div className="lead-status-row">
+        <StatusPill value={lead.status_id} statuses={ref.statuses} onChange={(v) => onSave({ status_id: v })} label="Lead-Status" />
+        {lead.do_not_call ? <Tag tone="red"><Ban size={12} /> Nicht anrufen</Tag> : null}
+        <span className="grow" />
+        <button type="button" className="icon-btn" onClick={onMore} aria-label="Weitere Aktionen" title="Weitere Aktionen" aria-haspopup="menu">
+          <MoreHorizontal />
+        </button>
+      </div>
+      <div className="lead-meta">
+        {lead.url ? (
+          <a href={ensureUrl(lead.url)} target="_blank" rel="noopener">
+            <Globe size={14} aria-hidden="true" /> {hostOf(lead.url)}
+          </a>
+        ) : null}
+        {address ? (
+          <a href={`https://www.google.com/maps/search/${encodeURIComponent([lead.name, address].join(' '))}`} target="_blank" rel="noopener">
+            <MapPin size={14} aria-hidden="true" /> {address}
+          </a>
+        ) : null}
+        <button type="button" className="link-like small" onClick={onEdit}>
+          {lead.url || address ? 'Bearbeiten' : 'Website und Adresse hinzufügen'}
+        </button>
+      </div>
+      <Description value={lead.description ?? ''} onSave={(v) => onSave({ description: v || null })} />
+    </div>
+  );
+}
+
+function Description({ value, onSave }: { value: string; onSave: (v: string) => void }) {
+  const [editing, setEditing] = useState(false);
+  const [v, setV] = useState(value);
+  useEffect(() => setV(value), [value]);
+  if (!editing) {
+    return (
+      <button type="button" className={cx('lead-desc', !value && 'empty')} onClick={() => setEditing(true)} title="Beschreibung bearbeiten">
+        {value || 'Beschreibung hinzufügen …'}
+      </button>
+    );
+  }
+  return (
+    <textarea
+      className="textarea lead-desc-edit"
+      autoFocus
+      value={v}
+      aria-label="Beschreibung"
+      placeholder="Was sollte jeder über diesen Lead wissen?"
+      onChange={(e) => setV(e.target.value)}
+      onBlur={() => {
+        setEditing(false);
+        if (v !== value) onSave(v.trim());
+      }}
+      onKeyDown={(e) => {
+        if (e.key === 'Escape') {
+          setV(value);
+          setEditing(false);
+        }
+        if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) (e.target as HTMLTextAreaElement).blur();
+      }}
+    />
+  );
+}
+
+function LeadEditModal({ lead, onSave, onClose }: { lead: Lead; onSave: (p: LeadInput) => Promise<void> | void; onClose: () => void }) {
+  const [f, setF] = useState({
+    name: lead.name,
+    url: lead.url ?? '',
+    address_street: lead.address_street ?? '',
+    address_zip: lead.address_zip ?? '',
+    address_city: lead.address_city ?? '',
+    address_state: lead.address_state ?? '',
+    source: lead.source ?? '',
+  });
+  const set = (k: keyof typeof f) => (e: React.ChangeEvent<HTMLInputElement>) => setF({ ...f, [k]: e.target.value });
+  const submit = async () => {
+    if (!f.name.trim()) return;
+    await onSave({
+      name: f.name.trim(),
+      url: f.url.trim() || null,
+      address_street: f.address_street.trim() || null,
+      address_zip: f.address_zip.trim() || null,
+      address_city: f.address_city.trim() || null,
+      address_state: f.address_state.trim() || null,
+      source: f.source.trim() || null,
+    });
+    onClose();
+  };
+  return (
+    <Modal
+      title="Lead bearbeiten"
+      onClose={onClose}
+      footer={
+        <>
+          <button type="button" className="btn" onClick={onClose}>Abbrechen</button>
+          <button type="button" className="btn primary" onClick={submit} disabled={!f.name.trim()}>Speichern</button>
+        </>
+      }
+    >
+      <div className="form-grid">
+        <Field label="Firma / Apotheke" className="full"><input className="input" value={f.name} onChange={set('name')} /></Field>
+        <Field label="Website" className="full"><input className="input" value={f.url} onChange={set('url')} placeholder="www.…" /></Field>
+        <Field label="Straße" className="full"><input className="input" value={f.address_street} onChange={set('address_street')} /></Field>
+        <Field label="PLZ"><input className="input" inputMode="numeric" value={f.address_zip} onChange={set('address_zip')} /></Field>
+        <Field label="Ort"><input className="input" value={f.address_city} onChange={set('address_city')} /></Field>
+        <Field label="Bundesland (Adresse)"><input className="input" value={f.address_state} onChange={set('address_state')} /></Field>
+        <Field label="Quelle"><input className="input" value={f.source} onChange={set('source')} /></Field>
+      </div>
+    </Modal>
   );
 }
 
@@ -414,11 +589,11 @@ function DuplicatesModal({ lead, onClose }: { lead: Lead; onClose: () => void })
     return { list, byId: new Map(leads.map((l) => [l.id, l])) };
   }, [store, lead.id]);
   return (
-    <Modal title="Mögliche Dubletten" onClose={onClose} wide>
+    <Modal title="Zusammenführen" onClose={onClose} wide>
       {q.loading && !q.data ? (
         <Loading />
       ) : !q.data?.list.length ? (
-        <p className="muted">Keine Dubletten gefunden.</p>
+        <p className="muted">Keine möglichen Dubletten gefunden.</p>
       ) : (
         <div className="col gap-12">
           {q.data.list.map((p) => {
@@ -432,387 +607,331 @@ function DuplicatesModal({ lead, onClose }: { lead: Lead; onClose: () => void })
   );
 }
 
-function ContactsPanel({ lead, onAdd, onEdit }: { lead: Lead; onAdd: () => void; onEdit: (c: Contact) => void }) {
+// ---------- Abschnitte links ----------
+function Section({ title, count, onAdd, addLabel, children }: { title: string; count?: number; onAdd?: (e: { currentTarget: HTMLElement }) => void; addLabel?: string; children: ReactNode }) {
+  return (
+    <section className="lead-sec">
+      <div className="lead-sec-head">
+        <h2>
+          {title}
+          {count ? <span className="lead-sec-count">{count}</span> : null}
+        </h2>
+        {onAdd ? (
+          <button type="button" className="icon-btn small" onClick={onAdd} aria-label={addLabel} title={addLabel}>
+            <Plus />
+          </button>
+        ) : null}
+      </div>
+      {children}
+    </section>
+  );
+}
+
+function TasksSection({ leadId, onAdd, onEdit }: { leadId: string; onAdd: () => void; onEdit: (t: Task) => void }) {
+  const { store } = useApp();
+  const { toast } = useUi();
+  const { name } = useLookups();
+  const tasks = useAsync(() => store.listTasks({ leadId, done: false, assignedTo: 'all' }), [leadId, store], ['tasks']);
+  const list = tasks.data ?? [];
+  const done = async (t: Task) => {
+    try {
+      await store.setTaskDone(t.id, true);
+      bus.emit('tasks');
+      bus.emit('timeline', leadId);
+      toast(`„${t.title}“ erledigt.`, {
+        action: {
+          label: 'Rückgängig',
+          run: () => {
+            store.setTaskDone(t.id, false).then(() => {
+              bus.emit('tasks');
+              bus.emit('timeline', leadId);
+            });
+          },
+        },
+      });
+    } catch (e) {
+      toast(errMsg(e), { kind: 'error' });
+    }
+  };
+  return (
+    <Section title="Aufgaben" count={list.length} onAdd={onAdd} addLabel="Aufgabe hinzufügen">
+      {list.map((t) => (
+        <div className="lead-row" key={t.id}>
+          <button type="button" className="task-check" onClick={() => done(t)} aria-label={`„${t.title}“ als erledigt markieren`} title="Erledigt">
+            <Circle />
+          </button>
+          <button type="button" className="lead-row-main plain-button" onClick={() => onEdit(t)}>
+            <span className="strong">{t.title}</span>
+            <span className="row gap-6 wrap xs">
+              <DueTag due={t.due_at} />
+              <span className="muted">{t.assigned_to ? name(t.assigned_to) : 'Team'}</span>
+            </span>
+          </button>
+        </div>
+      ))}
+      {tasks.data && !list.length ? <p className="lead-sec-empty">Keine offenen Aufgaben.</p> : null}
+    </Section>
+  );
+}
+
+function OppsSection({ leadId, onAdd, onEdit }: { leadId: string; onAdd: () => void; onEdit: (o: Opportunity) => void }) {
+  const { store, ref } = useApp();
+  const { oppStatusById, name } = useLookups();
+  const opps = useAsync(() => store.listOpportunities({ leadId }), [leadId, store], ['opportunities']);
+  // aktive zuerst, dann gewonnene/verlorene – wie Closes „primäre Opportunity“
+  const list = [...(opps.data ?? [])].sort((a, b) => {
+    const ka = oppStatusById.get(a.status_id ?? '')?.kind === 'open' ? 0 : 1;
+    const kb = oppStatusById.get(b.status_id ?? '')?.kind === 'open' ? 0 : 1;
+    return ka - kb || (a.created_at < b.created_at ? 1 : -1);
+  });
+  return (
+    <Section title="Opportunities" count={list.length} onAdd={onAdd} addLabel="Opportunity hinzufügen">
+      {list.map((o) => {
+        const st = o.status_id ? oppStatusById.get(o.status_id) : undefined;
+        const pipe = ref.pipelines.find((p) => p.id === st?.pipeline_id);
+        return (
+          <button key={o.id} type="button" className="lead-row plain-button lead-opp" onClick={() => onEdit(o)}>
+            {st?.kind === 'won' ? <CheckCircle2 size={16} color="var(--cross)" /> : <TrendingUp size={16} />}
+            <span className="lead-row-main">
+              <span className="row gap-6 wrap">
+                <strong className="num">{formatMoney(o.value)}</strong>
+                <span className="muted small">{o.value_period === 'monthly' ? 'mtl.' : o.value_period === 'annual' ? 'jährl.' : 'einmalig'}</span>
+                {st ? <Tag color={st.color}>{st.label}</Tag> : null}
+              </span>
+              <span className="xs muted">
+                {[ref.pipelines.length > 1 ? pipe?.name : null, `${o.confidence} %`, o.expected_close ? `bis ${formatDate(o.expected_close)}` : null, o.user_id ? name(o.user_id) : null].filter(Boolean).join(', ')}
+              </span>
+              {o.note ? <span className="small ellipsis-2">{o.note}</span> : null}
+            </span>
+          </button>
+        );
+      })}
+      {opps.data && !list.length ? <p className="lead-sec-empty">Keine Opportunity.</p> : null}
+    </Section>
+  );
+}
+
+function ContactsSection({
+  lead,
+  onAdd,
+  onEdit,
+  onEmail,
+  onSms,
+}: {
+  lead: Lead;
+  onAdd: () => void;
+  onEdit: (c: Contact) => void;
+  onEmail: (to: string) => void;
+  onSms: (to: string) => void;
+}) {
   const { ref, can } = useApp();
   const contacts = lead.contacts ?? [];
   const roleField = ref.customFields.find((f) => f.entity === 'contact' && f.key === 'contact_role');
+  const otherFields = ref.customFields.filter((f) => f.entity === 'contact' && f.key !== 'contact_role').sort((a, b) => a.sort - b.sort);
   return (
-    <div className="panel">
-      <div className="panel-head">
-        <h2>Kontakte</h2>
-        <button type="button" className="icon-btn small" onClick={onAdd} aria-label="Kontakt hinzufügen" title="Kontakt hinzufügen">
-          <Plus />
-        </button>
-      </div>
-      {!contacts.length ? (
-        <div className="panel-body muted small">Noch kein Kontakt. Mit + hinzufügen.</div>
-      ) : (
-        contacts.map((c) => {
-          const roles = roleField ? ((c.custom?.[roleField.key] as string[] | undefined) ?? []) : [];
-          return (
-            <div className="contact" key={c.id}>
-              <div className="row">
-                <span className="grow">
-                  <span className="contact-name">{c.name || 'Ohne Namen'}</span>
-                  {c.title ? <span className="muted small"> – {c.title}</span> : null}
-                </span>
-                <button type="button" className="icon-btn small" onClick={() => onEdit(c)} aria-label="Kontakt bearbeiten" title="Bearbeiten">
-                  <Pencil />
+    <Section title="Kontakte" count={contacts.length} onAdd={onAdd} addLabel="Kontakt hinzufügen">
+      {!contacts.length ? <p className="lead-sec-empty">Noch kein Kontakt.</p> : null}
+      {contacts.map((c) => {
+        const roles = roleField ? ((c.custom?.[roleField.key] as string[] | undefined) ?? []) : [];
+        const extras = otherFields.filter((f) => !isEmptyValue(c.custom?.[f.key]));
+        return (
+          <div className="lead-contact" key={c.id}>
+            <div className="row gap-6">
+              <span className="grow" style={{ minWidth: 0 }}>
+                <span className="contact-name">{c.name || 'Ohne Namen'}</span>
+                {c.title ? <span className="block xs muted">{c.title}</span> : null}
+              </span>
+              <button type="button" className="icon-btn small" onClick={() => onEdit(c)} aria-label={`${c.name || 'Kontakt'} bearbeiten`} title="Bearbeiten">
+                <Pencil />
+              </button>
+            </div>
+            {roles.length ? (
+              <div className="row wrap gap-4 mt-4">
+                {roles.map((r) => <Tag key={r} tone={r === 'Decision Maker' ? 'green' : 'soft'}>{r}</Tag>)}
+              </div>
+            ) : null}
+            {c.phones.map((p) => (
+              <div className="contact-line" key={p.number}>
+                <Phone size={14} className="muted" aria-hidden="true" />
+                <span className="number num">{formatPhone(p.number)}</span>
+                <span className="muted xs">{phoneTypeLabel(p.type)}</span>
+                <span className="spacer" />
+                {p.type !== 'fax' && can('calling') && !lead.do_not_call ? (
+                  <>
+                    <button type="button" className="icon-btn small" onClick={() => onSms(p.number)} aria-label={`SMS an ${formatPhone(p.number)}`} title="SMS">
+                      <MessageCircle />
+                    </button>
+                    <CallButton number={p.number} leadId={lead.id} contactId={c.id} leadName={lead.name} contactName={c.name} small />
+                  </>
+                ) : null}
+              </div>
+            ))}
+            {c.emails.map((e) => (
+              <div className="contact-line" key={e.email}>
+                <Mail size={14} className="muted" aria-hidden="true" />
+                <button type="button" className="link-like ellipsis" onClick={() => onEmail(e.email)} title={`E-Mail an ${e.email}`}>
+                  {e.email}
                 </button>
               </div>
-              {roles.length ? (
-                <div className="row wrap gap-4 mt-4">
-                  {roles.map((r) => <Tag key={r} tone={r === 'Decision Maker' ? 'green' : 'soft'}>{r}</Tag>)}
-                </div>
-              ) : null}
-              {c.phones.map((p) => (
-                <div className="phone-line" key={p.number}>
-                  <span className="number num">{formatPhone(p.number)}</span>
-                  <span className="muted xs">{phoneTypeLabel(p.type)}</span>
-                  <span className="spacer" />
-                  {p.type !== 'fax' && can('calling') && !lead.do_not_call ? <CallButton number={p.number} leadId={lead.id} contactId={c.id} leadName={lead.name} contactName={c.name} small /> : null}
-                </div>
-              ))}
-              {c.emails.map((e) => (
-                <div className="phone-line small" key={e.email}>
-                  <a href={`mailto:${e.email}`} className="ellipsis">{e.email}</a>
-                </div>
-              ))}
-            </div>
-          );
-        })
-      )}
-    </div>
+            ))}
+            {extras.length ? (
+              <dl className="contact-extras">
+                {extras.map((f) => (
+                  <div key={f.key} className="row gap-6">
+                    <dt className="muted">{f.label}</dt>
+                    <dd>{formatFieldValue(shapeOf(f), c.custom?.[f.key], ref.profiles)}</dd>
+                  </div>
+                ))}
+              </dl>
+            ) : null}
+          </div>
+        );
+      })}
+    </Section>
   );
 }
 
-function InlineInput({ value, onSave, type = 'text', placeholder }: { value: string; onSave: (v: string) => void; type?: string; placeholder?: string }) {
-  const [v, setV] = useState(value);
-  useEffect(() => setV(value), [value]);
+// ---------- Felder (wie Closes „Custom Fields“: ausgefüllte + immer sichtbare, Rest über +) ----------
+function FieldsSection({ lead, onSave }: { lead: Lead; onSave: (p: LeadInput) => void }) {
+  const { ref, can } = useApp();
+  const { name } = useLookups();
+  const addMenu = useMenu();
+  const [added, setAdded] = useState<string[]>([]);
+  const [focusKey, setFocusKey] = useState<string | null>(null);
+  const fields = ref.customFields.filter((f) => f.entity === 'lead').sort((a, b) => a.sort - b.sort);
+  const visible = fields.filter((f) => f.always_show || !isEmptyValue(lead.custom?.[f.key]) || added.includes(f.key));
+  const hidden = fields.filter((f) => !visible.includes(f) && (!f.restricted || can('edit_restricted_fields')));
   return (
-    <input
-      className="inline-edit"
-      type={type}
-      value={v}
-      placeholder={placeholder ?? '–'}
-      onChange={(e) => setV(e.target.value)}
-      onBlur={() => v !== value && onSave(v)}
-      onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
-    />
+    <Section title="Felder" onAdd={hidden.length ? addMenu.open : undefined} addLabel="Feld ausfüllen">
+      <dl className="lead-fields">
+        <dt>Zuständig</dt>
+        <dd>
+          <UserSelect value={lead.owner_id} onChange={(v) => onSave({ owner_id: v })} emptyLabel="Niemand" id="lead-owner" />
+        </dd>
+        <dt>Opener</dt>
+        <dd>
+          <UserSelect value={lead.opener_id} onChange={(v) => onSave({ opener_id: v })} emptyLabel="–" id="lead-opener" />
+        </dd>
+        {visible.map((f) => (
+          <CustomFieldRow key={f.key} lead={lead} field={f} onSave={onSave} autoEdit={focusKey === f.key} onEdited={() => setFocusKey(null)} />
+        ))}
+      </dl>
+      <p className="lead-stats xs muted">
+        Angelegt {formatDate(lead.created_at)}
+        {lead.created_by ? ` von ${name(lead.created_by)}` : ''}
+        {lead.source ? `, Quelle: ${lead.source}` : ''}. {lead.call_count === 1 ? '1 Anruf' : `${lead.call_count} Anrufe`}
+        {lead.last_call_at ? `, zuletzt ${formatDateTime(lead.last_call_at)}` : ''}.
+      </p>
+      {addMenu.isOpen ? (
+        <Popover anchor={addMenu.anchor} onClose={addMenu.close} align="end">
+          <div className="menu-label">Feld ausfüllen</div>
+          {hidden.map((f) => (
+            <MenuItem
+              key={f.key}
+              onClick={() => {
+                addMenu.close();
+                setAdded([...added, f.key]);
+                setFocusKey(f.key);
+              }}
+            >
+              {f.label}
+            </MenuItem>
+          ))}
+        </Popover>
+      ) : null}
+    </Section>
   );
 }
 
-// Eigenes Feld in der Seitenleiste: Text erst beim Verlassen speichern, Auswahl sofort
-function CustomFieldRow({ lead, field, onSave }: { lead: Lead; field: import('../../lib/types.ts').CustomField; onSave: (p: LeadInput) => void }) {
-  const { can } = useApp();
+// Ein Feld: zeigt den Wert als Text; ein Klick macht es bearbeitbar (Auswahl speichert sofort, Text beim Verlassen).
+function CustomFieldRow({ lead, field, onSave, autoEdit, onEdited }: { lead: Lead; field: CustomField; onSave: (p: LeadInput) => void; autoEdit?: boolean; onEdited?: () => void }) {
+  const { can, ref } = useApp();
   const shape = shapeOf(field);
   const stored = lead.custom?.[field.key];
+  const [editing, setEditing] = useState(!!autoEdit);
   const [v, setV] = useState<unknown>(stored);
+  const box = useRef<HTMLElement>(null);
   useEffect(() => setV(stored), [stored]);
+  useEffect(() => {
+    if (!editing) return;
+    const el = box.current?.querySelector<HTMLElement>('input, select, textarea, button');
+    el?.focus();
+    // Auswahllisten gleich aufklappen, wo der Browser das kann
+    if (el instanceof HTMLSelectElement && 'showPicker' in el) {
+      try {
+        (el as HTMLSelectElement & { showPicker: () => void }).showPicker();
+      } catch {
+        /* nicht überall erlaubt */
+      }
+    }
+  }, [editing]);
   const locked = field.restricted && !can('edit_restricted_fields');
   const commit = (next: unknown) => {
-    if (JSON.stringify(next ?? null) === JSON.stringify(stored ?? null)) return;
-    onSave({ custom: { ...(lead.custom ?? {}), [field.key]: next } });
+    if (JSON.stringify(next ?? null) !== JSON.stringify(stored ?? null)) onSave({ custom: { ...(lead.custom ?? {}), [field.key]: next } });
   };
-  const immediate = ['choice', 'multichoice', 'checkbox', 'user', 'date', 'datetime'].includes(field.type);
+  const finish = () => {
+    setEditing(false);
+    onEdited?.();
+  };
+  const immediate = ['choice', 'checkbox', 'user', 'date', 'datetime'].includes(field.type);
+  const text = formatFieldValue(shape, stored, ref.profiles);
   return (
     <>
       <dt title={field.description || undefined}>
         {field.label}
         {locked ? <Lock size={11} className="muted" aria-label="geschützt" /> : null}
       </dt>
-      <dd onBlur={immediate ? undefined : () => commit(v)}>
-        <FieldInput
-          field={shape}
-          value={v}
-          inline
-          disabled={locked}
-          onChange={(next) => {
-            setV(next);
-            if (immediate) commit(next);
-          }}
-        />
+      <dd
+        ref={box}
+        onBlur={(e) => {
+          if (!editing || box.current?.contains(e.relatedTarget as Node)) return;
+          if (!immediate) commit(v);
+          finish();
+        }}
+        onKeyDown={(e) => {
+          if (!editing) return;
+          if (e.key === 'Escape') {
+            setV(stored);
+            finish();
+          }
+          if (e.key === 'Enter' && field.type !== 'textarea' && !immediate) {
+            commit(v);
+            finish();
+          }
+        }}
+      >
+        {editing && !locked ? (
+          <FieldInput
+            field={shape}
+            value={v}
+            inline
+            onChange={(next) => {
+              setV(next);
+              if (immediate) {
+                commit(next);
+                if (field.type !== 'checkbox') finish();
+              } else if (field.type === 'multichoice') {
+                commit(next);
+              }
+            }}
+          />
+        ) : (
+          <button
+            type="button"
+            className={cx('field-value', !text && 'empty')}
+            onClick={() => !locked && setEditing(true)}
+            disabled={locked}
+            aria-label={`${field.label}: ${text || 'leer'}${locked ? '' : ' – bearbeiten'}`}
+          >
+            {text || '–'}
+          </button>
+        )}
       </dd>
     </>
   );
 }
 
-function InfoPanel({ lead, onSave, links }: { lead: Lead; onSave: (p: LeadInput) => void; links: { id: string; name: string; href: string }[] }) {
-  const { ref } = useApp();
-  const fields = ref.customFields.filter((f) => f.entity === 'lead').sort((a, b) => a.sort - b.sort);
-  return (
-    <div className="panel">
-      <div className="panel-head">
-        <h2>Infos</h2>
-      </div>
-      <div className="panel-body">
-        <dl className="kv">
-          <dt>Straße</dt>
-          <dd><InlineInput value={lead.address_street ?? ''} onSave={(v) => onSave({ address_street: v || null })} /></dd>
-          <dt>PLZ</dt>
-          <dd><InlineInput value={lead.address_zip ?? ''} onSave={(v) => onSave({ address_zip: v || null })} /></dd>
-          <dt>Ort</dt>
-          <dd><InlineInput value={lead.address_city ?? ''} onSave={(v) => onSave({ address_city: v || null })} /></dd>
-          <dt>Bundesland (Adresse)</dt>
-          <dd><InlineInput value={lead.address_state ?? ''} onSave={(v) => onSave({ address_state: v || null })} /></dd>
-          <dt>Website</dt>
-          <dd><InlineInput value={lead.url ?? ''} onSave={(v) => onSave({ url: v || null })} /></dd>
-          <dt>Quelle</dt>
-          <dd><InlineInput value={lead.source ?? ''} onSave={(v) => onSave({ source: v || null })} /></dd>
-          {fields.map((f) => (
-            <CustomFieldRow key={f.key} lead={lead} field={f} onSave={onSave} />
-          ))}
-          <dt>Anrufe</dt>
-          <dd className="num">{lead.call_count}{lead.last_call_at ? `, zuletzt ${formatDateTime(lead.last_call_at)}` : ''}</dd>
-        </dl>
-        <div className="field mt-16">
-          <label htmlFor="lead-desc">Beschreibung</label>
-          <DescriptionBox value={lead.description ?? ''} onSave={(v) => onSave({ description: v || null })} />
-        </div>
-        {links.length ? (
-          <div className="row wrap gap-4 mt-12">
-            {links.map((l) => (
-              <a key={l.id} className="btn small ghost" href={l.href} target="_blank" rel="noopener">
-                <ExternalLink size={14} /> {l.name}
-              </a>
-            ))}
-          </div>
-        ) : null}
-      </div>
-    </div>
-  );
-}
-
-function DescriptionBox({ value, onSave }: { value: string; onSave: (v: string) => void }) {
-  const [v, setV] = useState(value);
-  useEffect(() => setV(value), [value]);
-  return <textarea id="lead-desc" className="textarea" value={v} onChange={(e) => setV(e.target.value)} onBlur={() => v !== value && onSave(v)} placeholder="Was sollte jeder über diesen Lead wissen?" />;
-}
-
-function Composer({ lead, onEmail, onSms, onForm }: { lead: Lead; onEmail: () => void; onSms: () => void; onForm: (t: ActivityType) => void }) {
-  const { store, ref, can } = useApp();
-  const { toast } = useUi();
-  const [tab, setTab] = useState<'note' | 'call'>('note');
-  const [note, setNote] = useState('');
-  const [outcome, setOutcome] = useState(ref.outcomes.find((o) => o.active)?.key ?? '');
-  const [minutes, setMinutes] = useState('2');
-  const [direction, setDirection] = useState<'outbound' | 'inbound'>('outbound');
-  const [busy, setBusy] = useState(false);
-  const types = ref.activityTypes.filter((t) => !t.archived);
-
-  const saveNote = async () => {
-    if (!note.trim()) return;
-    setBusy(true);
-    try {
-      await store.addNote(lead.id, note.trim(), null, mentionsIn(note, ref.profiles));
-      setNote('');
-      bus.emit('timeline', lead.id);
-    } catch (e) {
-      toast(errMsg(e), { kind: 'error' });
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const logCall = async () => {
-    setBusy(true);
-    try {
-      await store.logManualCall({
-        lead_id: lead.id,
-        contact_id: lead.contacts?.[0]?.id ?? null,
-        direction,
-        outcome: outcome || null,
-        note: note.trim() || null,
-        duration: Math.round((Number(minutes.replace(',', '.')) || 0) * 60),
-      });
-      setNote('');
-      bus.emit('timeline', lead.id);
-      bus.emit('lead', lead.id);
-      toast('Anruf protokolliert.');
-    } catch (e) {
-      toast(errMsg(e), { kind: 'error' });
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const tabs: { value: 'note' | 'call'; label: ReactNode; icon?: ReactNode }[] = [{ value: 'note', label: 'Notiz', icon: <StickyNote /> }];
-  if (can('calling')) tabs.push({ value: 'call', label: 'Anruf protokollieren', icon: <Phone /> });
-
-  return (
-    <div className="composer">
-      <div className="row composer-tabs">
-        <Tabs value={tab} onChange={setTab} tabs={tabs} />
-        <span className="grow" />
-        <div className="row gap-4 composer-quick">
-          <button type="button" className="btn small ghost" onClick={onEmail} title="E-Mail schreiben (E)"><Mail size={15} /> <span className="hide-mobile">E-Mail</span></button>
-          {can('calling') ? <button type="button" className="btn small ghost" onClick={onSms} title="SMS schreiben"><MessageCircle size={15} /> <span className="hide-mobile">SMS</span></button> : null}
-          {types.length === 1 ? (
-            <button type="button" className="btn small ghost" onClick={() => onForm(types[0])} title={types[0].name}>
-              <ClipboardList size={15} /> <span className="hide-mobile">Formular</span>
-            </button>
-          ) : null}
-        </div>
-      </div>
-      <div className="composer-body col">
-        <MentionInput
-          id="composer-note"
-          className="composer-input"
-          value={note}
-          onChange={setNote}
-          profiles={ref.profiles}
-          placeholder={tab === 'note' ? 'Notiz schreiben … (N) – mit @Name erwähnst du Kollegen' : 'Was wurde besprochen? (z. B. Anruf vom Handy)'}
-          onSubmit={tab === 'note' ? saveNote : logCall}
-          ariaLabel={tab === 'note' ? 'Notiz' : 'Gesprächsnotiz'}
-        />
-        {tab === 'call' ? (
-          <div className="row wrap">
-            <select className="select" style={{ width: 'auto' }} value={direction} onChange={(e) => setDirection(e.target.value as 'outbound' | 'inbound')} aria-label="Richtung">
-              <option value="outbound">Ausgehend</option>
-              <option value="inbound">Eingehend</option>
-            </select>
-            <select className="select" style={{ width: 'auto' }} value={outcome} onChange={(e) => setOutcome(e.target.value)} aria-label="Ergebnis">
-              {ref.outcomes.filter((o) => o.active).map((o) => (
-                <option key={o.key} value={o.key}>{o.label}</option>
-              ))}
-            </select>
-            <input className="input" style={{ width: 90 }} inputMode="decimal" value={minutes} onChange={(e) => setMinutes(e.target.value)} aria-label="Dauer in Minuten" />
-            <span className="small muted">Min.</span>
-          </div>
-        ) : null}
-        <div className="row">
-          <span className="xs muted hide-touch">Strg + Enter speichert</span>
-          <span className="spacer" />
-          <button type="button" className="btn primary" onClick={tab === 'note' ? saveNote : logCall} disabled={busy || (tab === 'note' && !note.trim())}>
-            {tab === 'note' ? 'Notiz speichern' : 'Anruf speichern'}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function TasksPanel({ leadId, onAdd, onEdit }: { leadId: string; onAdd: () => void; onEdit: (t: Task) => void }) {
-  const { store } = useApp();
-  const { toast } = useUi();
-  const { name } = useLookups();
-  const tasks = useAsync(() => store.listTasks({ leadId, done: false, assignedTo: 'all' }), [leadId, store], ['tasks']);
-  const toggle = async (t: Task) => {
-    try {
-      await store.setTaskDone(t.id, true);
-      bus.emit('tasks');
-      bus.emit('timeline', leadId);
-    } catch (e) {
-      toast(errMsg(e), { kind: 'error' });
-    }
-  };
-  return (
-    <div className="panel">
-      <div className="panel-head">
-        <h2>Aufgaben</h2>
-        <button type="button" className="icon-btn small" onClick={onAdd} aria-label="Aufgabe hinzufügen" title="Aufgabe hinzufügen">
-          <Plus />
-        </button>
-      </div>
-      <div className="list">
-        {(tasks.data ?? []).map((t) => (
-          <div className="list-item" key={t.id}>
-            <button type="button" className="icon-btn small" onClick={() => toggle(t)} aria-label="Erledigt" title="Erledigt">
-              <Circle />
-            </button>
-            <button type="button" className="grow plain-button" onClick={() => onEdit(t)}>
-              <div className="strong">{t.title}</div>
-              <span className="row gap-4 wrap">
-                <DueTag due={t.due_at} />
-                <span className="xs muted">{t.assigned_to ? name(t.assigned_to) : 'Team'}</span>
-              </span>
-            </button>
-          </div>
-        ))}
-        {tasks.data && !tasks.data.length ? <div className="panel-body muted small">Keine offenen Aufgaben.</div> : null}
-      </div>
-    </div>
-  );
-}
-
-function MeetingsPanel({ leadId, onBook }: { leadId: string; onBook: () => void }) {
-  const { store } = useApp();
-  const { name } = useLookups();
-  const meetings = useAsync(
-    () => store.listMeetings({ from: addDays(startOfDay(), -365), to: addDays(startOfDay(), 365), leadId, includeCanceled: true }),
-    [leadId, store],
-    ['meetings'],
-  );
-  const rows = [...(meetings.data ?? [])].sort((a, b) => (a.starts_at < b.starts_at ? 1 : -1));
-  return (
-    <div className="panel">
-      <div className="panel-head">
-        <h2>Termine</h2>
-        <button type="button" className="icon-btn small" onClick={onBook} aria-label="Termin buchen" title="Termin buchen">
-          <CalendarPlus />
-        </button>
-      </div>
-      <div className="list">
-        {rows.map((m) => (
-          <div className="list-item col-item" key={m.id}>
-            <div className="row" style={{ width: '100%' }}>
-              <strong className="grow">{formatDay(m.starts_at)}, {formatTime(m.starts_at)}</strong>
-              {m.status !== 'scheduled' ? (
-                <Tag tone={m.status === 'completed' ? 'green' : 'red'}>
-                  {{ canceled: 'abgesagt', rescheduled: 'verschoben', completed: 'stattgefunden', no_show: 'nicht erschienen', scheduled: '' }[m.status]}
-                </Tag>
-              ) : (
-                <Tag tone="blue">geplant</Tag>
-              )}
-            </div>
-            <span className="small">{m.title}</span>
-            <span className="xs muted">
-              {[m.host_user_id ? `mit ${name(m.host_user_id)}` : m.host_name ? `mit ${m.host_name}` : null, m.set_by ? `gelegt von ${name(m.set_by)}` : null].filter(Boolean).join(', ')}
-            </span>
-            {new Date(m.starts_at).getTime() < Date.now() ? <MeetingActions meeting={m} /> : null}
-          </div>
-        ))}
-        {meetings.data && !rows.length ? <div className="panel-body muted small">Noch kein Termin.</div> : null}
-      </div>
-    </div>
-  );
-}
-
-function OppsPanel({ leadId, onAdd, onEdit }: { leadId: string; onAdd: () => void; onEdit: (o: Opportunity) => void }) {
-  const { store, ref } = useApp();
-  const { oppStatusById } = useLookups();
-  const opps = useAsync(() => store.listOpportunities({ leadId }), [leadId, store], ['opportunities']);
-  return (
-    <div className="panel">
-      <div className="panel-head">
-        <h2>Opportunities</h2>
-        <button type="button" className="icon-btn small" onClick={onAdd} aria-label="Opportunity hinzufügen" title="Opportunity hinzufügen">
-          <Plus />
-        </button>
-      </div>
-      <div className="list">
-        {(opps.data ?? []).map((o) => {
-          const st = o.status_id ? oppStatusById.get(o.status_id) : undefined;
-          const pipe = ref.pipelines.find((p) => p.id === st?.pipeline_id);
-          return (
-            <button key={o.id} type="button" className="list-item clickable plain-button full-row" onClick={() => onEdit(o)}>
-              {st?.kind === 'won' ? <CheckCircle2 size={16} color="var(--cross)" /> : <TrendingUp size={16} />}
-              <span className="grow">
-                <strong className="num">{formatMoney(o.value)}</strong>
-                <span className="muted small"> {o.value_period === 'monthly' ? 'mtl.' : o.value_period === 'annual' ? 'jährl.' : 'einmalig'}</span>
-                <div className="xs muted">{[ref.pipelines.length > 1 ? pipe?.name : null, `${o.confidence} %`, o.expected_close ? `bis ${formatDate(o.expected_close)}` : null].filter(Boolean).join(', ')}</div>
-              </span>
-              {st ? <Tag color={st.color}>{st.label}</Tag> : null}
-            </button>
-          );
-        })}
-        {opps.data && !opps.data.length ? <div className="panel-body muted small">Keine Opportunity.</div> : null}
-      </div>
-    </div>
-  );
-}
-
-function WorkflowsPanel({ leadId, onAdd }: { leadId: string; onAdd: () => void }) {
+function WorkflowsSection({ leadId, onAdd }: { leadId: string; onAdd: () => void }) {
   const { store, ref } = useApp();
   const { toast } = useUi();
   const runs = useAsync(() => store.listWorkflowRuns({ leadId, limit: 20 }), [store, leadId], ['workflows', 'tasks']);
@@ -829,41 +948,143 @@ function WorkflowsPanel({ leadId, onAdd }: { leadId: string; onAdd: () => void }
   };
 
   return (
-    <div className="panel">
-      <div className="panel-head">
-        <h2>Workflows</h2>
-        <button type="button" className="icon-btn small" onClick={onAdd} aria-label="In Workflow aufnehmen" title="In Workflow aufnehmen">
-          <Plus />
-        </button>
-      </div>
-      <div className="list">
-        {list.map((r) => {
-          const wf = ref.workflows.find((w) => w.id === r.workflow_id);
-          const st = RUN_STATUS[r.status];
-          const running = r.status === 'active' || r.status === 'paused';
-          return (
-            <div key={r.id} className="list-item">
-              <WorkflowIcon size={16} />
-              <span className="grow" style={{ minWidth: 0 }}>
-                <a href={routeHref({ name: 'workflow', id: r.workflow_id })} className="strong ellipsis block">{wf?.name ?? 'Workflow'}</a>
-                <span className="xs muted">
-                  {running && r.next_at ? `Schritt ${r.step_index + 1} von ${wf?.steps.length ?? '?'}, ${formatDateTime(r.next_at)}` : r.end_reason ?? ''}
-                </span>
+    <Section title="Workflows" count={list.filter((r) => r.status === 'active' || r.status === 'paused').length} onAdd={onAdd} addLabel="In Workflow aufnehmen">
+      {list.map((r) => {
+        const wf = ref.workflows.find((w) => w.id === r.workflow_id);
+        const st = RUN_STATUS[r.status];
+        const running = r.status === 'active' || r.status === 'paused';
+        return (
+          <div key={r.id} className="lead-row">
+            <WorkflowIcon size={16} className="muted" />
+            <span className="lead-row-main">
+              <a href={routeHref({ name: 'workflow', id: r.workflow_id })} className="strong ellipsis block">{wf?.name ?? 'Workflow'}</a>
+              <span className="xs muted">
+                {running && r.next_at ? `Schritt ${r.step_index + 1} von ${wf?.steps.length ?? '?'}, ${formatDateTime(r.next_at)}` : r.end_reason ?? ''}
               </span>
-              <Tag tone={st.tone}>{st.label}</Tag>
-              {running ? (
-                <>
-                  <button type="button" className="icon-btn small" onClick={() => setStatus(r.id, r.status === 'active' ? 'paused' : 'active')} aria-label={r.status === 'active' ? 'Pausieren' : 'Fortsetzen'}>
-                    {r.status === 'active' ? <Pause /> : <Play />}
-                  </button>
-                  <button type="button" className="icon-btn small" onClick={() => setStatus(r.id, 'canceled')} aria-label="Beenden"><X /></button>
-                </>
-              ) : null}
-            </div>
-          );
-        })}
-        {!list.length ? <div className="panel-body muted small">In keinem Workflow.</div> : null}
+            </span>
+            <Tag tone={st.tone}>{st.label}</Tag>
+            {running ? (
+              <>
+                <button type="button" className="icon-btn small" onClick={() => setStatus(r.id, r.status === 'active' ? 'paused' : 'active')} aria-label={r.status === 'active' ? 'Pausieren' : 'Fortsetzen'}>
+                  {r.status === 'active' ? <Pause /> : <Play />}
+                </button>
+                <button type="button" className="icon-btn small" onClick={() => setStatus(r.id, 'canceled')} aria-label="Beenden"><X /></button>
+              </>
+            ) : null}
+          </div>
+        );
+      })}
+      {!list.length ? <p className="lead-sec-empty">In keinem Workflow.</p> : null}
+    </Section>
+  );
+}
+
+// ---------- Editoren oben im Verlauf ----------
+function NoteComposer({ lead, onClose }: { lead: Lead; onClose: () => void }) {
+  const { store, ref } = useApp();
+  const { toast } = useUi();
+  const [note, setNote] = useState('');
+  const [busy, setBusy] = useState(false);
+  const save = async () => {
+    if (!note.trim()) return;
+    setBusy(true);
+    try {
+      await store.addNote(lead.id, note.trim(), null, mentionsIn(note, ref.profiles));
+      bus.emit('timeline', lead.id);
+      onClose();
+    } catch (e) {
+      toast(errMsg(e), { kind: 'error' });
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <InlinePanel
+      title="Notiz"
+      onClose={onClose}
+      footer={
+        <>
+          <span className="xs muted hide-touch" style={{ marginRight: 'auto' }}>Strg + Enter speichert, @Name erwähnt Kollegen</span>
+          <button type="button" className="btn" onClick={onClose}>Abbrechen</button>
+          <button type="button" className="btn primary" onClick={save} disabled={busy || !note.trim()}>Notiz speichern</button>
+        </>
+      }
+    >
+      <MentionInput id="composer-note" className="composer-input" value={note} onChange={setNote} profiles={ref.profiles} placeholder="Notiz schreiben …" onSubmit={save} ariaLabel="Notiz" />
+    </InlinePanel>
+  );
+}
+
+// Anruf nachtragen, der außerhalb des CRM stattfand (z. B. vom Handy) – Closes „Log a Call“
+function LogCallComposer({ lead, onClose }: { lead: Lead; onClose: () => void }) {
+  const { store, ref } = useApp();
+  const { toast } = useUi();
+  const outcomes = ref.outcomes.filter((o) => o.active);
+  const [note, setNote] = useState('');
+  const [outcome, setOutcome] = useState(outcomes[0]?.key ?? '');
+  const [minutes, setMinutes] = useState('2');
+  const [direction, setDirection] = useState<'outbound' | 'inbound'>('outbound');
+  const [contactId, setContactId] = useState<string | null>(lead.contacts?.[0]?.id ?? null);
+  const [busy, setBusy] = useState(false);
+  const save = async () => {
+    setBusy(true);
+    try {
+      await store.logManualCall({
+        lead_id: lead.id,
+        contact_id: contactId,
+        direction,
+        outcome: outcome || null,
+        note: note.trim() || null,
+        duration: Math.round((Number(minutes.replace(',', '.')) || 0) * 60),
+      });
+      bus.emit('timeline', lead.id);
+      bus.emit('lead', lead.id);
+      toast('Anruf protokolliert.');
+      onClose();
+    } catch (e) {
+      toast(errMsg(e), { kind: 'error' });
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <InlinePanel
+      title="Anruf protokollieren"
+      onClose={onClose}
+      footer={
+        <>
+          <button type="button" className="btn" onClick={onClose}>Abbrechen</button>
+          <button type="button" className="btn primary" onClick={save} disabled={busy}>Anruf speichern</button>
+        </>
+      }
+    >
+      <div className="col gap-12">
+        <div className="form-grid">
+          <Field label="Kontakt">
+            <select className="select" value={contactId ?? ''} onChange={(e) => setContactId(e.target.value || null)}>
+              <option value="">– keiner –</option>
+              {(lead.contacts ?? []).map((c) => <option key={c.id} value={c.id}>{c.name || 'Ohne Namen'}</option>)}
+            </select>
+          </Field>
+          <Field label="Richtung">
+            <select className="select" value={direction} onChange={(e) => setDirection(e.target.value as 'outbound' | 'inbound')}>
+              <option value="outbound">Ausgehend</option>
+              <option value="inbound">Eingehend</option>
+            </select>
+          </Field>
+          <Field label="Ergebnis">
+            <select className="select" value={outcome} onChange={(e) => setOutcome(e.target.value)}>
+              {outcomes.map((o) => <option key={o.key} value={o.key}>{o.label}</option>)}
+            </select>
+          </Field>
+          <Field label="Dauer (Minuten)">
+            <input className="input" inputMode="decimal" value={minutes} onChange={(e) => setMinutes(e.target.value)} />
+          </Field>
+        </div>
+        <Field label="Notiz">
+          <MentionInput value={note} onChange={setNote} profiles={ref.profiles} placeholder="Was wurde besprochen?" onSubmit={save} ariaLabel="Gesprächsnotiz" rows={3} />
+        </Field>
       </div>
-    </div>
+    </InlinePanel>
   );
 }

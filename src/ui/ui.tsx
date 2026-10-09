@@ -109,6 +109,25 @@ export function Tabs<T extends string>({
   );
 }
 
+// Kippschalter (an/aus) – für Einstellungen wie „Erreichbar“, „Pflichtfeld“, „Immer zeigen“
+export function Switch({ checked, onChange, label, disabled, id }: { checked: boolean; onChange: (v: boolean) => void; label: string; disabled?: boolean; id?: string }) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      id={id}
+      aria-checked={checked}
+      aria-label={label}
+      title={label}
+      className={cx('switch', checked && 'on')}
+      disabled={disabled}
+      onClick={() => onChange(!checked)}
+    >
+      <span className="switch-knob" aria-hidden="true" />
+    </button>
+  );
+}
+
 export function Field({ label, hint, children, className }: { label: ReactNode; hint?: ReactNode; children: ReactNode; className?: string }) {
   return (
     <div className={cx('field', className)}>
@@ -169,6 +188,58 @@ export function Modal({
       </div>
     </div>,
     document.body,
+  );
+}
+
+// ---------- Inline-Fenster ----------
+// Wie ein Modal, aber direkt im Seitenfluss – z. B. der E-Mail-/SMS-/Aktivitäts-Editor oben im
+// Verlauf der Lead-Seite (so arbeitet Close: kein Fenster legt sich über den Lead).
+export function InlinePanel({
+  title,
+  onClose,
+  children,
+  footer,
+  className,
+}: {
+  title: ReactNode;
+  onClose: () => void;
+  children: ReactNode;
+  footer?: ReactNode;
+  wide?: boolean;
+  className?: string;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const box = ref.current;
+    if (!box) return;
+    const fields = Array.from(box.querySelectorAll<HTMLElement>('input:not([type="hidden"]):not([type="checkbox"]):not([type="file"]), textarea, [contenteditable="true"]'));
+    // erstes leeres Feld (z. B. Betreff statt der schon ausgefüllten Adresse)
+    const empty = fields.find((f) => (f instanceof HTMLInputElement || f instanceof HTMLTextAreaElement ? !f.value : !f.textContent?.trim()));
+    (empty ?? fields[0])?.focus({ preventScroll: true });
+    box.scrollIntoView({ block: 'nearest' });
+  }, []);
+  return (
+    <div
+      className={cx('inline-panel', className)}
+      ref={ref}
+      role="region"
+      aria-label={typeof title === 'string' ? title : undefined}
+      onKeyDown={(e) => {
+        if (e.key === 'Escape') {
+          e.stopPropagation();
+          onClose();
+        }
+      }}
+    >
+      <div className="inline-panel-head">
+        <h3>{title}</h3>
+        <button type="button" className="icon-btn small" onClick={onClose} aria-label="Schließen" title="Schließen (Esc)">
+          <X />
+        </button>
+      </div>
+      <div className="inline-panel-body">{children}</div>
+      {footer ? <div className="inline-panel-foot">{footer}</div> : null}
+    </div>
   );
 }
 
@@ -368,7 +439,9 @@ export function useHotkeys(map: Record<string, (e: KeyboardEvent) => void>, enab
     const onKey = (e: KeyboardEvent) => {
       const t = e.target as HTMLElement;
       const typing = t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable);
-      const key = `${e.ctrlKey || e.metaKey ? 'mod+' : ''}${e.key.toLowerCase()}`;
+      // Strg/Cmd + Umschalt + Taste wie in Close (z. B. 'mod+shift+d'); '?' & Co. bleiben ohne „shift+“
+      const mod = e.ctrlKey || e.metaKey;
+      const key = `${mod ? 'mod+' : ''}${mod && e.shiftKey ? 'shift+' : ''}${e.key.toLowerCase()}`;
       const fn = saved.current[key];
       if (!fn) return;
       if (typing && !allowInInputs && !key.startsWith('mod+')) return;

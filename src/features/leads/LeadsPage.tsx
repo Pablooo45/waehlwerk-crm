@@ -125,10 +125,14 @@ export default function LeadsPage({ viewId }: { viewId: string | null }) {
     setAllMatching(false);
   };
 
-  const resolveIds = async (): Promise<ID[]> => (allMatching ? store.listLeadIds(effective, sort, MAX_BULK) : [...selected]);
+  // Wie in Close: Ohne Auswahl wirken Sammelaktionen auf die ganze Liste (Smart View), mit Auswahl nur auf die markierten
+  const noSelection = !selected.size && !allMatching;
+  const resolveIds = async (): Promise<ID[]> => (allMatching || noSelection ? store.listLeadIds(effective, sort, MAX_BULK) : [...selected]);
+  const scopeCount = noSelection ? Math.min(total, MAX_BULK) : count;
 
   const openBulk = async (m: 'edit' | 'email' | 'workflow') => {
     bulkMenu.close();
+    more.close();
     try {
       setBulkIds(await resolveIds());
       setModal(m);
@@ -139,7 +143,8 @@ export default function LeadsPage({ viewId }: { viewId: string | null }) {
 
   const bulkDelete = async () => {
     bulkMenu.close();
-    if (!(await confirm(`${count.toLocaleString('de-DE')} Leads mit allen Kontakten, Notizen und Aufgaben löschen? Anrufe bleiben in der Anrufliste erhalten.`, { danger: true, confirmLabel: 'Endgültig löschen' }))) return;
+    more.close();
+    if (!(await confirm(`${scopeCount.toLocaleString('de-DE')} Leads mit allen Kontakten, Notizen und Aufgaben löschen? Anrufe bleiben in der Anrufliste erhalten.`, { danger: true, confirmLabel: 'Endgültig löschen' }))) return;
     try {
       const ids = await resolveIds();
       const n = await store.deleteLeads(ids);
@@ -225,12 +230,22 @@ export default function LeadsPage({ viewId }: { viewId: string | null }) {
             <Save /> {view && canEditView ? 'Ansicht speichern' : 'Als Smart View speichern'}
           </button>
         ) : null}
-        <button type="button" className="icon-btn" onClick={more.open} aria-label="Weitere Aktionen">
+        {can('bulk_email') ? (
+          <button type="button" className="btn hide-mobile" onClick={() => openBulk('email')} disabled={!total} title={noSelection ? 'E-Mail an alle Leads dieser Liste' : 'E-Mail an die ausgewählten Leads'}>
+            <Mail /> E-Mail
+          </button>
+        ) : null}
+        {can('bulk_workflow') || can('manage_workflows') ? (
+          <button type="button" className="btn hide-mobile" onClick={() => openBulk('workflow')} disabled={!total} title={noSelection ? 'Alle Leads dieser Liste in einen Workflow aufnehmen' : 'Ausgewählte Leads in einen Workflow aufnehmen'}>
+            <WorkflowIcon /> Workflow
+          </button>
+        ) : null}
+        <button type="button" className="icon-btn" onClick={more.open} aria-label="Weitere Aktionen" aria-haspopup="menu">
           <MoreHorizontal />
         </button>
         {can('calling') ? (
-          <button type="button" className="btn call" onClick={() => startDialer(false)} disabled={!total || dialer.active}>
-            <Zap /> Power Dialer
+          <button type="button" className="btn call" onClick={() => startDialer(false)} disabled={!total || dialer.active} title="Power Dialer: alle Leads dieser Liste nacheinander anrufen">
+            <Zap /> Anrufen
           </button>
         ) : null}
       </div>
@@ -401,6 +416,12 @@ export default function LeadsPage({ viewId }: { viewId: string | null }) {
 
       {more.isOpen ? (
         <Popover anchor={more.anchor} onClose={more.close} align="end">
+          {noSelection && total ? <div className="menu-label">Für alle {Math.min(total, MAX_BULK).toLocaleString('de-DE')} Leads dieser Liste</div> : null}
+          {can('bulk_edit') && total ? <MenuItem icon={<Pencil />} onClick={() => openBulk('edit')}>Sammelbearbeitung (Status, Zuständig, Felder …)</MenuItem> : null}
+          {can('bulk_email') && total ? <MenuItem icon={<Mail />} onClick={() => openBulk('email')}>E-Mail an alle senden</MenuItem> : null}
+          {(can('bulk_workflow') || can('manage_workflows')) && total ? <MenuItem icon={<WorkflowIcon />} onClick={() => openBulk('workflow')}>In Workflow aufnehmen</MenuItem> : null}
+          {can('bulk_delete') && can('delete_leads') && total ? <MenuItem icon={<Trash2 />} danger onClick={bulkDelete}>Alle löschen</MenuItem> : null}
+          {total ? <div className="menu-sep" /> : null}
           {can('export') ? (
             <MenuItem icon={<Download />} onClick={() => { more.close(); exportCsv(false); }}>
               Liste als CSV exportieren

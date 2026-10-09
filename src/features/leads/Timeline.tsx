@@ -1,5 +1,6 @@
-// Verlauf eines Leads wie in Close: Anrufe (mit Aufnahme), Notizen, E-Mails, SMS, Termine, Formulare,
-// Änderungen – jeweils mit Kommentaren und @Erwähnungen.
+// Verlauf eines Leads wie in Close: Anstehend (Termine, geplante E-Mails), Angeheftet, dann alle Aktivitäten –
+// Anrufe (mit Aufnahme), Notizen, E-Mails, SMS, Termine, eigene Aktivitäten, Änderungen; jeweils mit Kommentaren
+// und @Erwähnungen. Filter-Menü und Suche (Strg + F) wie in Close.
 
 import {
   AlertTriangle,
@@ -7,12 +8,15 @@ import {
   CalendarCheck,
   CalendarClock,
   CalendarX,
+  Check,
   CheckCircle2,
+  ChevronDown,
   ClipboardList,
   CornerUpLeft,
   Eye,
   FileText,
   GitMerge,
+  ListFilter,
   Mail,
   MessageCircle,
   MessageSquare,
@@ -24,13 +28,15 @@ import {
   Pin,
   PinOff,
   Plus,
+  Search as SearchIcon,
   StickyNote,
   Trash2,
   TrendingUp,
   UserRound,
   Voicemail,
+  X as XIcon,
 } from 'lucide-react';
-import { type ReactNode, useState } from 'react';
+import { createContext, type ReactNode, useContext, useState } from 'react';
 import { useApp } from '../../app/context.tsx';
 import { useLookups } from '../../app/hooks.ts';
 import { callHref } from '../../app/router.ts';
@@ -40,7 +46,7 @@ import { canDeleteActivity, canEditActivity } from '../../lib/perms.ts';
 import type { Call, Comment, CommentTarget, CustomActivity, Email, LeadEvent, Meeting, Note, SmsMessage, Task, TimelineItem } from '../../lib/types.ts';
 import { MentionInput, mentionsIn, MentionText } from '../../ui/MentionInput.tsx';
 import { HtmlFrame, textToHtml } from '../../ui/RichText.tsx';
-import { cx, Empty, errMsg, Tag, useUi } from '../../ui/ui.tsx';
+import { cx, Empty, errMsg, MenuItem, Popover, Tag, useHotkeys, useMenu, useUi } from '../../ui/ui.tsx';
 import { OutcomeTag, RecordingPlayer } from '../common/bits.tsx';
 import { formatFieldValue, shapeOf } from '../common/fields.tsx';
 import { QualityBadge } from '../calls/Player.tsx';
@@ -48,14 +54,14 @@ import { QualityBadge } from '../calls/Player.tsx';
 type Kind = 'all' | 'call' | 'note' | 'email' | 'sms' | 'meeting' | 'activity' | 'event';
 
 const KIND_LABEL: Record<Kind, string> = {
-  all: 'Alles',
+  all: 'Alle Aktivitäten',
   call: 'Anrufe',
-  note: 'Notizen',
   email: 'E-Mails',
   sms: 'SMS',
+  note: 'Notizen',
   meeting: 'Termine',
-  activity: 'Formulare',
-  event: 'Änderungen',
+  activity: 'Eigene Aktivitäten',
+  event: 'Änderungen & Aufgaben',
 };
 
 export interface TimelineActions {
@@ -63,55 +69,157 @@ export interface TimelineActions {
   onEditActivity?: (a: CustomActivity) => void;
 }
 
+// Suchtext eines Eintrags (Closes „Aktivitäten durchsuchen“)
+function textOf(i: TimelineItem): string {
+  switch (i.kind) {
+    case 'call':
+      return [i.data.note, i.data.to_number, i.data.from_number].filter(Boolean).join(' ');
+    case 'note':
+      return i.data.body;
+    case 'email':
+      return `${i.data.subject} ${i.data.is_html ? i.data.body.replace(/<[^>]+>/g, ' ') : i.data.body} ${i.data.to_address ?? ''} ${i.data.from_address ?? ''}`;
+    case 'sms':
+      return i.data.body;
+    case 'meeting':
+      return `${i.data.title} ${i.data.outcome_note ?? ''}`;
+    case 'activity':
+      return Object.values(i.data.data ?? {}).map((v) => (Array.isArray(v) ? v.join(' ') : String(v ?? ''))).join(' ');
+    case 'task':
+      return i.data.title;
+    default:
+      return '';
+  }
+}
+
 export function Timeline({ items, leadId, comments, actions }: { items: TimelineItem[]; leadId: string; comments: Comment[]; actions?: TimelineActions }) {
   const [kind, setKind] = useState<Kind>('all');
+  const [q, setQ] = useState('');
+  const [searching, setSearching] = useState(false);
+  const filterMenu = useMenu();
   const kindOf = (i: TimelineItem): Kind => (i.kind === 'task' ? 'event' : i.kind);
   const counts = new Map<Kind, number>();
   for (const i of items) counts.set(kindOf(i), (counts.get(kindOf(i)) ?? 0) + 1);
-  const visible = items.filter((i) => kind === 'all' || kindOf(i) === kind);
   const byTarget = new Map<string, Comment[]>();
   for (const c of comments) {
     const k = `${c.target_kind}:${c.target_id}`;
     byTarget.set(k, [...(byTarget.get(k) ?? []), c]);
   }
 
+  useHotkeys(
+    {
+      'mod+f': (e) => {
+        e.preventDefault();
+        setSearching(true);
+      },
+    },
+    true,
+    true,
+  );
+
+  // Anstehend: Termine in der Zukunft und geplante E-Mails/SMS; angeheftet: Notizen mit Stecknadel
+  const now = Date.now();
+  const isUpcoming = (i: TimelineItem) =>
+    (i.kind === 'meeting' && i.data.status === 'scheduled' && new Date(i.data.starts_at).getTime() > now) ||
+    ((i.kind === 'email' || i.kind === 'sms') && i.data.status === 'scheduled');
+  const upcoming = items
+    .filter(isUpcoming)
+    .sort((a, b) => (startOf(a) < startOf(b) ? -1 : 1));
+  const pinned = items.filter((i) => i.kind === 'note' && i.data.pinned);
+  const term = q.trim().toLowerCase();
+  const visible = items.filter(
+    (i) => !isUpcoming(i) && !(i.kind === 'note' && i.data.pinned) && (kind === 'all' || kindOf(i) === kind) && (!term || textOf(i).toLowerCase().includes(term)),
+  );
+
+  const row = (item: TimelineItem) => {
+    const target = targetOf(item);
+    return (
+      <TimelineRow
+        key={`${item.kind}-${item.id}`}
+        item={item}
+        leadId={leadId}
+        actions={actions}
+        comments={target ? byTarget.get(`${target.kind}:${target.id}`) ?? [] : []}
+        target={target}
+      />
+    );
+  };
+
   return (
-    <div className="panel">
-      <div className="panel-head">
-        <h2>Verlauf</h2>
-      </div>
-      <div className="tl-filter">
-        {(Object.keys(KIND_LABEL) as Kind[]).map((k) =>
-          k === 'all' || counts.get(k) ? (
-            <button key={k} type="button" className={cx('chip-btn', kind === k && 'active')} aria-pressed={kind === k} onClick={() => setKind(k)}>
-              {KIND_LABEL[k]} {k !== 'all' ? <span className="num muted">{counts.get(k)}</span> : null}
+    <div className="feed">
+      {upcoming.length ? (
+        <div className="feed-group upcoming">
+          <h3><CalendarClock size={14} aria-hidden="true" /> Anstehend</h3>
+          <div className="timeline">{upcoming.map(row)}</div>
+        </div>
+      ) : null}
+      {pinned.length ? (
+        <div className="feed-group pinned">
+          <h3><Pin size={14} aria-hidden="true" /> Angeheftet</h3>
+          <div className="timeline">{pinned.map(row)}</div>
+        </div>
+      ) : null}
+      <div className="feed-head">
+        <h2>Aktivitäten</h2>
+        <span className="grow" />
+        {searching ? (
+          <div className="feed-search">
+            <SearchIcon size={15} aria-hidden="true" />
+            <input
+              autoFocus
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              placeholder="Aktivitäten durchsuchen"
+              aria-label="Aktivitäten durchsuchen"
+              onKeyDown={(e) => {
+                if (e.key === 'Escape') {
+                  setQ('');
+                  setSearching(false);
+                }
+              }}
+            />
+            <button type="button" className="icon-btn small" onClick={() => { setQ(''); setSearching(false); }} aria-label="Suche schließen">
+              <XIcon />
             </button>
-          ) : null,
-        )}
-      </div>
-      <div className="panel-body">
-        {!visible.length ? (
-          <Empty title="Noch nichts passiert">Anrufe, Notizen, E-Mails und Termine erscheinen hier.</Empty>
-        ) : (
-          <div className="timeline">
-            {visible.map((item) => {
-              const target = targetOf(item);
-              return (
-                <TimelineRow
-                  key={`${item.kind}-${item.id}`}
-                  item={item}
-                  leadId={leadId}
-                  actions={actions}
-                  comments={target ? byTarget.get(`${target.kind}:${target.id}`) ?? [] : []}
-                  target={target}
-                />
-              );
-            })}
           </div>
+        ) : (
+          <button type="button" className="icon-btn small" onClick={() => setSearching(true)} aria-label="Aktivitäten durchsuchen" title="Aktivitäten durchsuchen (Strg + F)">
+            <SearchIcon />
+          </button>
         )}
+        <button type="button" className={cx('btn small', kind !== 'all' && 'active')} onClick={filterMenu.open} aria-haspopup="menu">
+          <ListFilter size={15} /> {KIND_LABEL[kind]} <ChevronDown size={14} />
+        </button>
       </div>
+      {!visible.length ? (
+        <Empty title={term || kind !== 'all' ? 'Nichts gefunden' : 'Noch nichts passiert'}>
+          {term || kind !== 'all' ? 'Anderen Filter wählen oder Suche leeren.' : 'Anrufe, Notizen, E-Mails und Termine erscheinen hier.'}
+        </Empty>
+      ) : (
+        <div className="timeline">{visible.map(row)}</div>
+      )}
+      {filterMenu.isOpen ? (
+        <Popover anchor={filterMenu.anchor} onClose={filterMenu.close} align="end">
+          {(Object.keys(KIND_LABEL) as Kind[]).map((k) =>
+            k === 'all' || counts.get(k) ? (
+              <MenuItem key={k} onClick={() => { setKind(k); filterMenu.close(); }}>
+                <span className="row gap-6">
+                  <span className="grow">{KIND_LABEL[k]}</span>
+                  <span className="muted num">{k === 'all' ? items.length : counts.get(k)}</span>
+                  {kind === k ? <Check size={15} aria-label="gewählt" /> : <span style={{ width: 15 }} />}
+                </span>
+              </MenuItem>
+            ) : null,
+          )}
+        </Popover>
+      ) : null}
     </div>
   );
+}
+
+function startOf(i: TimelineItem): string {
+  if (i.kind === 'meeting') return i.data.starts_at;
+  if ((i.kind === 'email' || i.kind === 'sms') && i.data.send_at) return i.data.send_at;
+  return i.at;
 }
 
 function targetOf(item: TimelineItem): { kind: CommentTarget; id: string } | null {
@@ -131,8 +239,21 @@ function targetOf(item: TimelineItem): { kind: CommentTarget; id: string } | nul
   }
 }
 
+// Kommentar-Knopf oben rechts in jeder Karte (wie in Close) – über Kontext an die Zeile gereicht
+const CommentCtx = createContext<ReactNode>(null);
+
 function TimelineRow({ item, leadId, actions, comments, target }: { item: TimelineItem; leadId: string; actions?: TimelineActions; comments: Comment[]; target: { kind: CommentTarget; id: string } | null }) {
-  const thread = target ? <Thread leadId={leadId} target={target} comments={comments} /> : null;
+  const [composing, setComposing] = useState(false);
+  const thread = target && (comments.length || composing) ? <Thread leadId={leadId} target={target} comments={comments} open={composing} setOpen={setComposing} /> : null;
+  const commentBtn = target && !composing ? (
+    <button type="button" className="icon-btn small" onClick={() => setComposing(true)} aria-label="Kommentieren" title="Kommentieren (@Name erwähnt Kollegen)">
+      <MessageSquare />
+    </button>
+  ) : null;
+  return <CommentCtx.Provider value={commentBtn}>{rowFor(item, leadId, thread, actions)}</CommentCtx.Provider>;
+}
+
+function rowFor(item: TimelineItem, leadId: string, thread: ReactNode, actions?: TimelineActions) {
   switch (item.kind) {
     case 'call':
       return <CallItem call={item.data} thread={thread} />;
@@ -154,13 +275,19 @@ function TimelineRow({ item, leadId, actions, comments, target }: { item: Timeli
 }
 
 function Row({ icon, tone, head, children, actions, thread }: { icon: ReactNode; tone?: string; head: ReactNode; children?: ReactNode; actions?: ReactNode; thread?: ReactNode }) {
+  const comment = useContext(CommentCtx);
   return (
     <div className="tl-item">
       <div className={cx('tl-icon', tone)}>{icon}</div>
       <div style={{ minWidth: 0 }}>
         <div className="tl-head">
           {head}
-          {actions ? <span className="tl-actions">{actions}</span> : null}
+          {actions || comment ? (
+            <span className="tl-actions">
+              {actions}
+              {comment}
+            </span>
+          ) : null}
         </div>
         {children}
         {thread}
@@ -170,11 +297,10 @@ function Row({ icon, tone, head, children, actions, thread }: { icon: ReactNode;
 }
 
 // ---------- Kommentare ----------
-function Thread({ leadId, target, comments }: { leadId: string; target: { kind: CommentTarget; id: string }; comments: Comment[] }) {
+function Thread({ leadId, target, comments, open, setOpen }: { leadId: string; target: { kind: CommentTarget; id: string }; comments: Comment[]; open: boolean; setOpen: (v: boolean) => void }) {
   const { store, ref, me } = useApp();
   const { toast } = useUi();
   const { name, profileById } = useLookups();
-  const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState('');
 
   const add = async () => {
@@ -214,7 +340,7 @@ function Thread({ leadId, target, comments }: { leadId: string; target: { kind: 
       ))}
       {open ? (
         <div className="col gap-4 mt-4">
-          <MentionInput value={draft} onChange={setDraft} profiles={ref.profiles} rows={2} placeholder="Kommentar … @Name erwähnt Kollegen" onSubmit={add} ariaLabel="Kommentar" />
+          <MentionInput value={draft} onChange={setDraft} profiles={ref.profiles} rows={2} placeholder="Kommentar … @Name erwähnt Kollegen" onSubmit={add} ariaLabel="Kommentar" autoFocus />
           <div className="row gap-4">
             <button type="button" className="btn small primary" onClick={add} disabled={!draft.trim()}>Kommentieren</button>
             <button type="button" className="btn small ghost" onClick={() => { setOpen(false); setDraft(''); }}>Abbrechen</button>
@@ -222,7 +348,7 @@ function Thread({ leadId, target, comments }: { leadId: string; target: { kind: 
         </div>
       ) : (
         <button type="button" className="tl-comment-btn" onClick={() => setOpen(true)}>
-          <MessageSquare size={13} /> {comments.length ? 'Antworten' : 'Kommentieren'}
+          <MessageSquare size={13} /> Antworten
         </button>
       )}
     </div>
@@ -539,7 +665,7 @@ function MeetingItem({ meeting, thread }: { meeting: Meeting; thread: ReactNode 
   );
 }
 
-// ---------- Formular ----------
+// ---------- Eigene Aktivität ----------
 function ActivityItem({ activity, onEdit, thread }: { activity: CustomActivity; onEdit?: (a: CustomActivity) => void; thread: ReactNode }) {
   const { ref } = useApp();
   const { name } = useLookups();
@@ -557,7 +683,7 @@ function ActivityItem({ activity, onEdit, thread }: { activity: CustomActivity; 
         <>
           <strong>
             {type ? <span className="dot" style={{ background: type.color, marginRight: 6 }} aria-hidden="true" /> : null}
-            {type?.name ?? 'Formular'}
+            {type?.name ?? 'Aktivität'}
           </strong>
           <span className="muted small">{name(activity.user_id)}, {formatRelative(activity.created_at)}</span>
           {activity.status === 'draft' ? <Tag tone="amber">Entwurf</Tag> : null}

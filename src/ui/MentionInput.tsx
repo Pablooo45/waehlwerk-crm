@@ -23,7 +23,8 @@ export const MentionInput = forwardRef<MentionInputHandle, {
   ariaLabel?: string;
   className?: string;
   id?: string;
-}>(function MentionInput({ value, onChange, profiles, placeholder, rows = 3, onSubmit, ariaLabel = 'Text', className, id }, ref) {
+  autoFocus?: boolean;
+}>(function MentionInput({ value, onChange, profiles, placeholder, rows = 3, onSubmit, ariaLabel = 'Text', className, id, autoFocus }, ref) {
   const ta = useRef<HTMLTextAreaElement>(null);
   const [query, setQuery] = useState<{ start: number; text: string } | null>(null);
   const [sel, setSel] = useState(0);
@@ -63,6 +64,7 @@ export const MentionInput = forwardRef<MentionInputHandle, {
       <textarea
         ref={ta}
         id={id}
+        autoFocus={autoFocus}
         className="textarea"
         rows={rows}
         value={value}

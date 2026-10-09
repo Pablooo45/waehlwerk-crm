@@ -463,7 +463,7 @@ function TriggerValue({ wf, onChange }: { wf: Workflow; onChange: (v: string | n
     case 'call_outcome':
       return sel('Ergebnis', ref.outcomes.map((o) => ({ value: o.key, label: o.label })));
     case 'activity_created':
-      return sel('Formular', ref.activityTypes.filter((a) => !a.archived).map((a) => ({ value: a.id, label: a.name })));
+      return sel('Aktivität', ref.activityTypes.filter((a) => !a.archived).map((a) => ({ value: a.id, label: a.name })));
     case 'opportunity_status':
       return sel(
         'Opportunity-Status',

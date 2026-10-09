@@ -79,7 +79,7 @@ export interface DemoDb {
   callScripts: Record<string, { key: string; seed: number }>;
 }
 
-export const DEMO_VERSION = 8;
+export const DEMO_VERSION = 9;
 
 /** Wochenende vermeiden: Samstag/Sonntag auf Montag (dir = 1) bzw. Freitag (dir = -1) schieben. */
 function weekday(d: Date, dir: 1 | -1): Date {
@@ -345,8 +345,10 @@ export function createDemoDb(now = new Date()): DemoDb {
     { id: O.cVerloren, pipeline_id: P.sc, label: 'Verloren', kind: 'lost', color: '#b5473a', sort: 70 },
   ];
 
+  // Felder, die am Lead auch leer stehen (die übrigen erscheinen erst, wenn jemand sie ausfüllt – wie in Close)
+  const ALWAYS = ['inhaber', 'anzahl_filialen', 'bundesland', 'lead_quelle', 'interesse', 'setting_art', 'setting_termin', 'gesperrt_bis', 'contact_role'];
   const cf = (key: string, entity: CustomField['entity'], label: string, type: CustomField['type'], choices: string[], sort: number, show = false): CustomField =>
-    ({ key, entity, label, description: '', type, choices, sort, show_in_list: show, restricted: false });
+    ({ key, entity, label, description: '', type, choices, sort, show_in_list: show, always_show: ALWAYS.includes(key), restricted: false });
   const BUNDESLAENDER = ['Baden-Württemberg', 'Bayern', 'Berlin', 'Brandenburg', 'Bremen', 'Hamburg', 'Hessen', 'Mecklenburg-Vorpommern', 'Niedersachsen', 'Nordrhein-Westfalen', 'Rheinland-Pfalz', 'Saarland', 'Sachsen', 'Sachsen-Anhalt', 'Schleswig-Holstein', 'Thüringen'];
   const customFields: CustomField[] = [
     cf('lead_geprueft', 'lead', 'LEAD GEPRÜFT', 'choice', ['JA'], 10),
@@ -1058,7 +1060,7 @@ export function createDemoDb(now = new Date()): DemoDb {
       status: 'active', trigger: { type: 'meeting_booked', value: null, filters: {} },
       steps: [
         { id: 's1', type: 'sms', wait: { amount: 0, unit: 'minutes' }, config: { template_id: TPL.sms } },
-        { id: 's2', type: 'task', wait: { amount: 1, unit: 'days' }, config: { title: 'Setting vorbereiten: Formular ansehen' } },
+        { id: 's2', type: 'task', wait: { amount: 1, unit: 'days' }, config: { title: 'Setting vorbereiten: Setting-Protokoll ansehen' } },
       ],
       goal: { type: 'none', value: null }, send_window: { days: [1, 2, 3, 4, 5], from: '08:00', to: '19:00' }, allow_reenroll: true, stop_on_reply: false,
       sender_mode: 'owner', sender_user: null, created_by: U.alex, created_at: iso(addDays(now, -25)), updated_at: iso(addDays(now, -5)),

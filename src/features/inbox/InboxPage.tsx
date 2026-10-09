@@ -1,5 +1,6 @@
 // Inbox wie in Close: fällige Aufgaben und Benachrichtigungen (verpasste Anrufe, Mailbox, Antworten,
-// Erwähnungen) an einem Ort. „Später“ schiebt etwas auf, „Erledigt“ räumt es weg.
+// Erwähnungen) an einem Ort – mit Lead-Status an jedem Eintrag. „Später“ schiebt etwas auf, „Erledigt“
+// räumt es weg. Rechts die Termine (wie Closes Meeting-Spalte in der Inbox).
 
 import {
   AlarmClock,
@@ -24,21 +25,22 @@ import { NOTIFICATION_ICONS, openNotification } from '../../app/Notifications.ts
 import { type InboxBox, leadHref, navigate, routeHref } from '../../app/router.ts';
 import { bus } from '../../lib/bus.ts';
 import { addDays, endOfDay, nextWorkday, startOfDay, toLocalInput, fromLocalInput } from '../../lib/dates.ts';
-import { formatDateTime, formatRelative, formatTime } from '../../lib/format.ts';
+import { formatDateTime, formatDay, formatRelative, formatTime } from '../../lib/format.ts';
 import type { AppNotification, Call, Meeting, Task, TaskType } from '../../lib/types.ts';
 import { cx, Empty, errMsg, Loading, MenuItem, Popover, Tabs, useMenu, useUi } from '../../ui/ui.tsx';
-import { DueTag, RecordingPlayer } from '../common/bits.tsx';
+import { DueTag, RecordingPlayer, StatusTag } from '../common/bits.tsx';
 import { TaskFormModal } from '../common/forms.tsx';
 import { firstPhone } from '../dialer/DialerContext.tsx';
 
-type Kind = 'all' | 'tasks' | 'calls' | 'mentions' | 'messages' | 'other';
+type Kind = 'all' | 'emails' | 'calls' | 'sms' | 'tasks' | 'mentions' | 'other';
 
 const KIND_LABEL: Record<Kind, string> = {
-  all: 'Alles',
+  all: 'Alle',
+  emails: 'E-Mails',
+  calls: 'Anrufe',
+  sms: 'SMS',
   tasks: 'Aufgaben',
-  calls: 'Anrufe & Mailbox',
   mentions: 'Erwähnungen',
-  messages: 'E-Mail & SMS',
   other: 'Sonstiges',
 };
 
@@ -66,8 +68,9 @@ function kindOf(i: Item): Kind {
     case 'comment':
       return 'mentions';
     case 'email':
+      return 'emails';
     case 'sms':
-      return 'messages';
+      return 'sms';
     default:
       return 'other';
   }
@@ -94,19 +97,6 @@ export default function InboxPage({ box, userId }: { box: InboxBox; userId: stri
     ['tasks', 'notifications'],
   );
 
-  const today = useAsync(
-    async () => {
-      if (!own) return null;
-      const from = startOfDay();
-      const [rows, meetings] = await Promise.all([
-        store.reportActivity(from, addDays(from, 1), [me.id]),
-        store.listMeetings({ from: new Date(), to: endOfDay(), userId: me.id }),
-      ]);
-      return { stats: rows.find((r) => r.user_id === me.id), meetings };
-    },
-    [store, me.id, own],
-    ['calls', 'meetings'],
-  );
 
   const items = useMemo(() => {
     const end = endOfDay().getTime();
@@ -136,8 +126,6 @@ export default function InboxPage({ box, userId }: { box: InboxBox; userId: stri
   const visible = kind === 'all' ? items : items.filter((i) => kindOf(i) === kind);
 
   const go = (b: InboxBox, u: string | null = userId) => navigate(routeHref({ name: 'inbox', box: b, userId: u }));
-  const s = today.data?.stats;
-  const meetings = today.data?.meetings ?? [];
   const others = ref.profiles.filter((p) => p.active && p.id !== me.id);
 
   const doneAll = async () => {
@@ -177,82 +165,103 @@ export default function InboxPage({ box, userId }: { box: InboxBox; userId: stri
         </button>
       </div>
 
-      {own && !teamTasks && box === 'inbox' ? (
-        <div className="today-strip">
-          <div className="kpi small-kpi"><div className="v num">{s?.dials ?? 0}</div><div className="k">Anwahlen heute</div></div>
-          <div className="kpi small-kpi"><div className="v num">{s?.reached ?? 0}</div><div className="k">Entscheider erreicht</div></div>
-          <div className="kpi small-kpi"><div className="v num">{s?.meetings_logged ?? 0}</div><div className="k">Termine gelegt</div></div>
-          <div className="today-meetings">
-            {meetings.length ? (
-              meetings.slice(0, 3).map((m: Meeting) => (
-                <div key={m.id} className="row gap-8 small">
-                  <CalendarClock size={15} className="muted" aria-hidden="true" />
-                  <strong className="num">{formatTime(m.starts_at)}</strong>
-                  <span className="ellipsis grow">{m.lead ? <a href={leadHref(m.lead.id)}>{m.lead.name}</a> : m.title}</span>
-                  {m.join_url ? <a className="btn small" href={m.join_url} target="_blank" rel="noopener">Beitreten</a> : null}
-                </div>
-              ))
-            ) : (
-              <span className="small muted">Heute keine Termine mehr. <a href="#/meetings">Kalender</a></span>
+      <div className="inbox-layout">
+        <div className="inbox-main">
+          <div className="row wrap inbox-bar">
+            <Tabs<InboxBox>
+              value={box}
+              onChange={(b) => go(b)}
+              tabs={[
+                { value: 'inbox', label: <>Inbox{box === 'inbox' && items.length ? <span className="count">{items.length}</span> : null}</> },
+                { value: 'later', label: 'Später' },
+                { value: 'done', label: 'Erledigt' },
+              ]}
+            />
+            <span className="grow" />
+            {box === 'inbox' && own && visible.some((i) => i.kind === 'note') ? (
+              <button type="button" className="btn small ghost" onClick={doneAll}>
+                <Check size={15} /> Benachrichtigungen erledigt
+              </button>
+            ) : null}
+          </div>
+
+          <div className="filterbar">
+            {(Object.keys(KIND_LABEL) as Kind[]).map((k) =>
+              k === 'all' || counts.get(k) ? (
+                <button key={k} type="button" className={cx('chip-btn', kind === k && 'active')} aria-pressed={kind === k} onClick={() => setKind(k)}>
+                  {KIND_LABEL[k]} <span className="num muted">{counts.get(k) ?? 0}</span>
+                </button>
+              ) : null,
             )}
           </div>
-        </div>
-      ) : null}
 
-      <div className="row wrap inbox-bar">
-        <Tabs<InboxBox>
-          value={box}
-          onChange={(b) => go(b)}
-          tabs={[
-            { value: 'inbox', label: <>Inbox{box === 'inbox' && items.length ? <span className="count">{items.length}</span> : null}</> },
-            { value: 'later', label: 'Später' },
-            { value: 'done', label: 'Erledigt' },
-          ]}
-        />
-        <span className="grow" />
-        {box === 'inbox' && own && visible.some((i) => i.kind === 'note') ? (
-          <button type="button" className="btn small ghost" onClick={doneAll}>
-            <Check size={15} /> Benachrichtigungen erledigt
-          </button>
-        ) : null}
+          {data.loading && !data.data ? (
+            <Loading />
+          ) : data.error ? (
+            <div className="callout err">{data.error}</div>
+          ) : !visible.length ? (
+            <div className="panel">
+              <Empty title={box === 'done' ? 'Noch nichts erledigt' : box === 'later' ? 'Nichts aufgeschoben' : 'Inbox leer'}>
+                {box === 'inbox' ? 'Keine fälligen Aufgaben und keine neuen Benachrichtigungen. Zeit für den Power Dialer.' : box === 'later' ? 'Aufgeschobenes und Aufgaben für die nächsten Tage erscheinen hier.' : 'Erledigtes erscheint hier.'}
+              </Empty>
+            </div>
+          ) : (
+            <div className="panel">
+              <div className="list inbox-list">
+                {visible.map((i) =>
+                  i.kind === 'task' ? (
+                    <TaskItem key={i.id} task={i.task} box={box} canAct={own || teamTasks || can('manage_others_tasks')} onEdit={() => setEditing(i.task)} />
+                  ) : (
+                    <NoteItem key={i.id} n={i.n} box={box} canAct={own} />
+                  ),
+                )}
+              </div>
+            </div>
+          )}
+
+        </div>
+        <MeetingsSide userId={teamTasks ? me.id : uid} />
       </div>
-
-      <div className="filterbar">
-        {(Object.keys(KIND_LABEL) as Kind[]).map((k) =>
-          k === 'all' || counts.get(k) ? (
-            <button key={k} type="button" className={cx('chip-btn', kind === k && 'active')} aria-pressed={kind === k} onClick={() => setKind(k)}>
-              {KIND_LABEL[k]} <span className="num muted">{counts.get(k) ?? 0}</span>
-            </button>
-          ) : null,
-        )}
-      </div>
-
-      {data.loading && !data.data ? (
-        <Loading />
-      ) : data.error ? (
-        <div className="callout err">{data.error}</div>
-      ) : !visible.length ? (
-        <div className="panel">
-          <Empty title={box === 'done' ? 'Noch nichts erledigt' : box === 'later' ? 'Nichts aufgeschoben' : 'Inbox leer'}>
-            {box === 'inbox' ? 'Keine fälligen Aufgaben und keine neuen Benachrichtigungen. Zeit für den Power Dialer.' : box === 'later' ? 'Aufgeschobenes und Aufgaben für die nächsten Tage erscheinen hier.' : 'Erledigtes erscheint hier.'}
-          </Empty>
-        </div>
-      ) : (
-        <div className="panel">
-          <div className="list inbox-list">
-            {visible.map((i) =>
-              i.kind === 'task' ? (
-                <TaskItem key={i.id} task={i.task} box={box} canAct={own || teamTasks || can('manage_others_tasks')} onEdit={() => setEditing(i.task)} />
-              ) : (
-                <NoteItem key={i.id} n={i.n} box={box} canAct={own} />
-              ),
-            )}
-          </div>
-        </div>
-      )}
 
       {editing ? <TaskFormModal task={editing === 'new' ? undefined : editing} onClose={() => setEditing(null)} /> : null}
     </div>
+  );
+}
+
+// Termine rechts neben der Inbox: heute und die nächsten Tage
+function MeetingsSide({ userId }: { userId: string }) {
+  const { store } = useApp();
+  const q = useAsync(() => store.listMeetings({ from: new Date(Date.now() - 30 * 60_000), to: addDays(endOfDay(), 7), userId }), [store, userId], ['meetings']);
+  const list = (q.data ?? []).filter((m) => m.status === 'scheduled').sort((a, b) => (a.starts_at < b.starts_at ? -1 : 1));
+  const todayEnd = endOfDay().getTime();
+  const today = list.filter((m) => new Date(m.starts_at).getTime() <= todayEnd);
+  const later = list.filter((m) => new Date(m.starts_at).getTime() > todayEnd).slice(0, 6);
+  const row = (m: Meeting, withDay: boolean) => (
+    <div key={m.id} className="side-meeting">
+      <span className="side-meeting-time num">{withDay ? formatDay(m.starts_at) : formatTime(m.starts_at)}</span>
+      <span className="grow" style={{ minWidth: 0 }}>
+        <span className="block ellipsis strong">{m.lead ? <a href={leadHref(m.lead.id)}>{m.lead.name}</a> : m.title}</span>
+        <span className="block xs muted ellipsis">{withDay ? `${formatTime(m.starts_at)}, ` : ''}{m.title}</span>
+      </span>
+      {m.join_url && !withDay ? <a className="btn small" href={m.join_url} target="_blank" rel="noopener">Beitreten</a> : null}
+    </div>
+  );
+  return (
+    <aside className="inbox-side" aria-label="Termine">
+      <div className="inbox-side-head">
+        <CalendarClock size={16} aria-hidden="true" />
+        <h2 className="grow">Termine</h2>
+        <a href="#/meetings" className="small">Alle</a>
+      </div>
+      <h3>Heute</h3>
+      {today.length ? today.map((m) => row(m, false)) : <p className="small muted">Heute keine Termine mehr.</p>}
+      {later.length ? (
+        <>
+          <h3>Demnächst</h3>
+          {later.map((m) => row(m, true))}
+        </>
+      ) : null}
+    </aside>
   );
 }
 
@@ -361,6 +370,7 @@ function TaskItem({ task, box, canAct, onEdit }: { task: Task; box: InboxBox; ca
         <div className="inbox-title">{task.title}</div>
         <div className="row wrap gap-8 small muted">
           {task.lead ? <a href={leadHref(task.lead.id)}>{task.lead.name}</a> : null}
+          {task.lead?.status_id ? <StatusTag statusId={task.lead.status_id} /> : null}
           {!done ? <DueTag due={task.due_at} /> : <span>erledigt {formatRelative(task.done_at)}{task.done_by && task.done_by !== me.id ? ` von ${name(task.done_by)}` : ''}</span>}
           {task.assigned_to && task.assigned_to !== me.id ? <span>für {name(task.assigned_to)}</span> : null}
         </div>
@@ -427,6 +437,7 @@ function NoteItem({ n, box, canAct }: { n: AppNotification; box: InboxBox; canAc
         {n.body ? <div className="small inbox-body">{n.body}</div> : null}
         <div className="row wrap gap-8 xs muted mt-4">
           {n.lead ? <a href={leadHref(n.lead.id)}>{n.lead.name}</a> : null}
+          {n.lead?.status_id ? <StatusTag statusId={n.lead.status_id} /> : null}
           <span title={formatDateTime(n.created_at)}>{formatRelative(n.created_at)}</span>
           {n.actor_id ? <span>von {name(n.actor_id)}</span> : null}
           {box === 'later' && n.snoozed_until ? <span>erinnert {formatDateTime(n.snoozed_until)}</span> : null}

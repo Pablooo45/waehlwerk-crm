@@ -58,6 +58,7 @@ select pg_temp.check((select count(*) = 2 from public.pipelines) and (select cou
 select pg_temp.check((select count(*) = 3 from public.activity_types), 'Formulare aus Close');
 select pg_temp.check((select jsonb_array_length(fields) = 20 from public.activity_types where name = 'Setting: Kundengewinnung'), 'Formular Kundengewinnung mit 20 Feldern');
 select pg_temp.check((select count(*) = 16 from public.custom_fields), 'Felder aus Close');
+select pg_temp.check((select count(*) = 9 from public.custom_fields where always_show), 'Felder, die am Lead immer stehen (wie in Close einstellbar)');
 select pg_temp.check((select count(*) = 6 from public.smart_views where pinned), 'angeheftete Smart Views');
 select pg_temp.check((select name = 'Salus Digital GmbH' and voicemail_drop_outcome = 'nicht_erreicht' from public.org_settings), 'Organisation');
 

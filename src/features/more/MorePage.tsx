@@ -2,18 +2,18 @@
 
 import { ChevronRight, CircleUserRound, Keyboard, LogOut, Moon, Pin, Settings, Zap } from 'lucide-react';
 import { useApp } from '../../app/context.tsx';
-import { useNavItems } from '../../app/nav.tsx';
+import { useExtraNavItems, useNavItems } from '../../app/nav.tsx';
 import { routeHref } from '../../app/router.ts';
 import { pinnedViews } from '../../lib/views.ts';
 import { Avatar } from '../../ui/ui.tsx';
 import { useDialer } from '../dialer/DialerContext.tsx';
 
-const IN_BOTTOM_BAR = ['Inbox', 'Leads', 'Gespräche', 'Termine'];
+const IN_BOTTOM_BAR = ['Inbox', 'Leads', 'Opportunities', 'Gespräche'];
 
 export default function MorePage() {
   const { me, ref, store, reloadRef, signOut } = useApp();
   const dialer = useDialer();
-  const items = useNavItems(0).filter((n) => !IN_BOTTOM_BAR.includes(n.label));
+  const items = [...useNavItems(0).filter((n) => !IN_BOTTOM_BAR.includes(n.label)), ...useExtraNavItems()];
   const views = pinnedViews(ref.smartViews, me.settings.pinnedViews, me.settings.hiddenViews);
   const role = ref.roles.find((r) => r.id === me.role_id)?.name ?? '';
 
