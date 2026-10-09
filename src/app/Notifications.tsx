@@ -25,7 +25,7 @@ export const NOTIFICATION_ICONS: Record<NotificationKind, ReactNode> = {
 
 export function openNotification(n: AppNotification) {
   if (n.ref_kind === 'call' && n.ref_id) navigate(`#/calls/${n.ref_id}`);
-  else if (n.lead_id) navigate(leadHref(n.lead_id));
+  else if (n.lead_id) navigate(leadHref(n.lead_id, 'inbox'));
   else navigate('#/inbox');
 }
 

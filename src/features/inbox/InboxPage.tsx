@@ -4,6 +4,7 @@
 
 import {
   AlarmClock,
+  ArrowRight,
   CalendarClock,
   Check,
   CheckSquare,
@@ -30,6 +31,7 @@ import type { AppNotification, Call, Meeting, Task, TaskType } from '../../lib/t
 import { cx, Empty, errMsg, Loading, MenuItem, Popover, Tabs, useMenu, useUi } from '../../ui/ui.tsx';
 import { DueTag, RecordingPlayer, StatusTag } from '../common/bits.tsx';
 import { TaskFormModal } from '../common/forms.tsx';
+import { buildInboxItems, type InboxItem, inboxLeadIds } from './items.ts';
 import { firstPhone } from '../dialer/DialerContext.tsx';
 
 type Kind = 'all' | 'emails' | 'calls' | 'sms' | 'tasks' | 'mentions' | 'other';
@@ -54,9 +56,7 @@ const TASK_ICON: Record<TaskType, ReactNode> = {
   workflow: <WorkflowIcon size={17} />,
 };
 
-type Item =
-  | { kind: 'task'; id: string; at: number; task: Task }
-  | { kind: 'note'; id: string; at: number; n: AppNotification };
+type Item = InboxItem;
 
 function kindOf(i: Item): Kind {
   if (i.kind === 'task') return i.task.type === 'missed_call' || i.task.type === 'voicemail' ? 'calls' : 'tasks';
@@ -98,26 +98,9 @@ export default function InboxPage({ box, userId }: { box: InboxBox; userId: stri
   );
 
 
-  const items = useMemo(() => {
-    const end = endOfDay().getTime();
-    const out: Item[] = [];
-    for (const t of data.data?.tasks ?? []) {
-      const due = t.due_at ? new Date(t.due_at).getTime() : null;
-      if (box === 'inbox' && due !== null && due > end) continue;
-      if (box === 'later' && (due === null || due <= end)) continue;
-      out.push({ kind: 'task', id: t.id, at: box === 'done' ? new Date(t.done_at ?? t.created_at).getTime() : due ?? new Date(t.created_at).getTime(), task: t });
-    }
-    for (const n of data.data?.notes ?? []) {
-      out.push({ kind: 'note', id: n.id, at: new Date(box === 'later' ? n.snoozed_until ?? n.created_at : box === 'done' ? n.done_at ?? n.created_at : n.created_at).getTime(), n });
-    }
-    out.sort((a, b) => (box === 'later' ? a.at - b.at : b.at - a.at));
-    if (box === 'inbox') {
-      // Überfällige Aufgaben zuerst, dann der Rest neu → alt
-      out.sort((a, b) => Number(isOverdue(b)) - Number(isOverdue(a)));
-    }
-    return out;
-  }, [data.data, box]);
+  const items = useMemo(() => buildInboxItems(data.data?.tasks ?? [], data.data?.notes ?? [], box), [data.data, box]);
 
+  const queue = useMemo(() => inboxLeadIds(items), [items]);
   const counts = useMemo(() => {
     const m = new Map<Kind, number>([['all', items.length]]);
     for (const i of items) m.set(kindOf(i), (m.get(kindOf(i)) ?? 0) + 1);
@@ -163,6 +146,11 @@ export default function InboxPage({ box, userId }: { box: InboxBox; userId: stri
         <button type="button" className="btn" onClick={() => setEditing('new')}>
           <Plus /> Aufgabe
         </button>
+        {own && !teamTasks && box === 'inbox' && queue.length ? (
+          <button type="button" className="btn primary" onClick={() => navigate(leadHref(queue[0], 'inbox'))} title="Inbox Lead für Lead abarbeiten – auf jeder Lead-Seite geht es mit „Nächster Lead“ weiter">
+            Abarbeiten <ArrowRight size={15} />
+          </button>
+        ) : null}
       </div>
 
       <div className="inbox-layout">
@@ -265,10 +253,6 @@ function MeetingsSide({ userId }: { userId: string }) {
   );
 }
 
-function isOverdue(i: Item): boolean {
-  return i.kind === 'task' && !!i.task.due_at && new Date(i.task.due_at).getTime() < Date.now();
-}
-
 // Zeitpunkte für „Später“
 function snoozeOptions(): { label: string; at: Date }[] {
   const now = new Date();
@@ -369,7 +353,7 @@ function TaskItem({ task, box, canAct, onEdit }: { task: Task; box: InboxBox; ca
       <div className="grow" style={{ minWidth: 0 }}>
         <div className="inbox-title">{task.title}</div>
         <div className="row wrap gap-8 small muted">
-          {task.lead ? <a href={leadHref(task.lead.id)}>{task.lead.name}</a> : null}
+          {task.lead ? <a href={leadHref(task.lead.id, box === 'inbox' ? 'inbox' : null)}>{task.lead.name}</a> : null}
           {task.lead?.status_id ? <StatusTag statusId={task.lead.status_id} /> : null}
           {!done ? <DueTag due={task.due_at} /> : <span>erledigt {formatRelative(task.done_at)}{task.done_by && task.done_by !== me.id ? ` von ${name(task.done_by)}` : ''}</span>}
           {task.assigned_to && task.assigned_to !== me.id ? <span>für {name(task.assigned_to)}</span> : null}
@@ -436,7 +420,7 @@ function NoteItem({ n, box, canAct }: { n: AppNotification; box: InboxBox; canAc
         <button type="button" className="inbox-title link-like" onClick={open}>{n.title}</button>
         {n.body ? <div className="small inbox-body">{n.body}</div> : null}
         <div className="row wrap gap-8 xs muted mt-4">
-          {n.lead ? <a href={leadHref(n.lead.id)}>{n.lead.name}</a> : null}
+          {n.lead ? <a href={leadHref(n.lead.id, box === 'inbox' ? 'inbox' : null)}>{n.lead.name}</a> : null}
           {n.lead?.status_id ? <StatusTag statusId={n.lead.status_id} /> : null}
           <span title={formatDateTime(n.created_at)}>{formatRelative(n.created_at)}</span>
           {n.actor_id ? <span>von {name(n.actor_id)}</span> : null}

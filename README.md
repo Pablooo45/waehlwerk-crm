@@ -6,6 +6,12 @@ Die Einrichtung Schritt für Schritt steht in **[EINRICHTUNG.md](EINRICHTUNG.md)
 
 ## Was drin ist
 
+**Aufbau wie in Close**
+- Seitenleiste mit Suche (Strg + K), Inbox, Leads (mit „+“ für neue Leads), Kontakte, Opportunities, Gespräche, Berichte, Workflows und euren Smart Views; Telefon und Konto oben links
+- Lead-Seite in zwei Spalten: links Status, Aufgaben, Opportunities, Kontakte und Felder, rechts Anrufen, E-Mail, SMS, Notiz, Aktivität und Termin – der Editor öffnet sich direkt über dem Verlauf
+- Inbox mit „Abarbeiten“ und „Nächster Lead“, Power Dialer auf der echten Lead-Seite, Pipeline zum Ziehen
+- Alles anpassbar: Lead-Status, Pipelines und Phasen, eigene Felder, eigene Aktivitäten, Anruf-Ergebnisse (mit Status- und Wiedervorlage-Automatik), Links, Rollen – als Listen zum Ziehen mit Bearbeiten-Fenster
+
 **Telefonie**
 - Anrufen direkt aus dem Browser (Twilio, Server in Frankfurt, Ausweich-Server Dublin, Opus-Codec, `answerOnBridge`: kein Klicken, keine Verzögerung beim Verbinden)
 - Power Dialer: wählt eine Liste nacheinander ab, sperrt den Lead für Kollegen, überspringt Kunden, „nicht anrufen“ und gerade erst Angerufene
@@ -27,10 +33,10 @@ Die Einrichtung Schritt für Schritt steht in **[EINRICHTUNG.md](EINRICHTUNG.md)
 - Löschfrist für Aufnahmen (z. B. nach 90 Tagen automatisch)
 
 **Leads und Vertrieb**
-- Leads mit mehreren Kontakten und Nummern, eigene Felder, Verlauf (Anrufe, Notizen, E-Mails, SMS, Termine, Formulare, Änderungen)
+- Leads mit mehreren Kontakten und Nummern, eigene Felder, Verlauf (Anrufe, Notizen, E-Mails, SMS, Termine, eigene Aktivitäten, Änderungen) mit Filter und Suche
 - Smart Views mit Filtern, Suche nach Name, Ort, Person oder Nummer, Spalten frei wählbar
 - Sammelaktionen: Status/Zuständige ändern, löschen, Sammel-E-Mail, in Workflow aufnehmen; Dubletten finden und zusammenführen
-- Opportunities mit mehreren Pipelines, Formulare (wie Custom Activities in Close), Aufgaben-Inbox mit Benachrichtigungen und @Erwähnungen
+- Opportunities mit mehreren Pipelines, eigene Aktivitäten (wie Custom Activities in Close), Aufgaben-Inbox mit Benachrichtigungen und @Erwähnungen
 
 **E-Mail und SMS**
 - Eigenes Postfach verbinden (IONOS, Google Workspace, Microsoft 365 …): Mails aus dem CRM senden, Kopie im „Gesendet“-Ordner, Antworten landen automatisch beim Lead
@@ -38,7 +44,7 @@ Die Einrichtung Schritt für Schritt steht in **[EINRICHTUNG.md](EINRICHTUNG.md)
 - SMS senden und empfangen (Twilio)
 
 **Workflows** (wie Workflows/Sequenzen in Close)
-- Auslöser (neuer Lead, Status, Anruf-Ergebnis, Termin, Formular …), Schritte mit Wartezeiten: E-Mail, SMS, Anruf-Aufgabe, Aufgabe, Lead ändern, reihum zuweisen, Opportunity, Benachrichtigung, Bedingung
+- Auslöser (neuer Lead, Status, Anruf-Ergebnis, Termin, Aktivität …), Schritte mit Wartezeiten: E-Mail, SMS, Anruf-Aufgabe, Aufgabe, Lead ändern, reihum zuweisen, Opportunity, Benachrichtigung, Bedingung
 - Versandfenster (z. B. Mo–Fr 8–18 Uhr), Ziel (z. B. Termin gebucht) und „Stoppen bei Antwort“
 
 **Termine**
@@ -52,7 +58,7 @@ Die Einrichtung Schritt für Schritt steht in **[EINRICHTUNG.md](EINRICHTUNG.md)
 
 **Berichte**
 - Anwahlen, erreichte Entscheider, gelegte und gebuchte Termine, Gesprächszeit, Abschlüsse – pro Person und Zeitraum
-- Beste Anrufzeiten (Wochentag × Stunde), Ergebnisse, Statuswechsel, Pipeline-Trichter, Formular-Auswertungen
+- Beste Anrufzeiten (Wochentag × Stunde), Ergebnisse, Statuswechsel, Pipeline-Trichter, Auswertung eigener Aktivitäten
 
 **Umzug aus Close**
 - Übernahme über die Close-Schnittstelle: Einstellungen, Leads, Kontakte, Opportunities, Verlauf, offene Aufgaben und Aufnahmen – in Etappen, wiederholbar ohne Doppelungen

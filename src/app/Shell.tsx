@@ -343,7 +343,7 @@ function Page({ route }: { route: Route }) {
     case 'leads':
       return <LeadsPage viewId={route.viewId} />;
     case 'lead':
-      return <LeadPage id={route.id} key={route.id} />;
+      return <LeadPage id={route.id} from={route.from ?? null} key={route.id} />;
     case 'views':
       return <ViewsPage />;
     case 'contacts':

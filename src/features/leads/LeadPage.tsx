@@ -4,8 +4,10 @@
 //           (kein Fenster über dem Lead), darunter Anstehend, Angeheftet und alle Aktivitäten.
 
 import {
+  ArrowRight,
   Ban,
   CalendarPlus,
+  Check,
   CheckCircle2,
   ChevronDown,
   Circle,
@@ -14,6 +16,7 @@ import {
   ExternalLink,
   Globe,
   GitMerge,
+  Inbox as InboxIcon,
   Lock,
   Mail,
   MapPin,
@@ -36,9 +39,9 @@ import {
 import { type ReactNode, useEffect, useRef, useState } from 'react';
 import { useApp, usePhone } from '../../app/context.tsx';
 import { useAsync, useLookups } from '../../app/hooks.ts';
-import { navigate, routeHref } from '../../app/router.ts';
+import { leadHref, navigate, routeHref } from '../../app/router.ts';
 import { bus } from '../../lib/bus.ts';
-import { ensureUrl, fillTemplate, formatDate, formatDateTime, formatMoney, formatPhone, hostOf } from '../../lib/format.ts';
+import { ensureUrl, fillTemplate, formatDate, formatDateTime, formatMoney, formatPhone, formatRelative, hostOf } from '../../lib/format.ts';
 import type { ActivityType, Comment, Contact, CustomActivity, CustomField, Email, Lead, LeadInput, Opportunity, Task, TimelineItem } from '../../lib/types.ts';
 import { MentionInput, mentionsIn } from '../../ui/MentionInput.tsx';
 import { copyText, cx, Empty, errMsg, Field, InlinePanel, Loading, MenuItem, Modal, Popover, Segmented, Tag, useHotkeys, useMenu, useUi } from '../../ui/ui.tsx';
@@ -50,9 +53,10 @@ import { BookMeetingModal } from '../meetings/BookMeeting.tsx';
 import { PairCard } from '../settings/Duplicates.tsx';
 import { EnrollInWorkflowModal } from '../workflows/WorkflowPage.tsx';
 import { RUN_STATUS } from '../workflows/meta.tsx';
+import { type InboxItem, inboxLeadIds, leadOf, useMyInbox } from '../inbox/items.ts';
 import { Timeline } from './Timeline.tsx';
 
-export default function LeadPage({ id }: { id: string }) {
+export default function LeadPage({ id, from = null }: { id: string; from?: string | null }) {
   const { store } = useApp();
   const lead = useAsync(() => store.getLead(id), [id, store]);
   const timeline = useAsync(() => store.timeline(id, 400), [id, store], ['messages', 'insights']);
@@ -96,6 +100,7 @@ export default function LeadPage({ id }: { id: string }) {
   return (
     <LeadView
       lead={lead.data}
+      from={from}
       timeline={timeline.data ?? []}
       comments={comments.data ?? []}
       reload={() => {
@@ -117,7 +122,7 @@ type Composer =
 
 type ModalKind = null | 'book' | 'task' | 'opp' | 'contact' | 'workflow' | 'dupes' | 'edit';
 
-function LeadView({ lead, timeline, comments, reload }: { lead: Lead; timeline: TimelineItem[]; comments: Comment[]; reload: () => void }) {
+function LeadView({ lead, from, timeline, comments, reload }: { lead: Lead; from: string | null; timeline: TimelineItem[]; comments: Comment[]; reload: () => void }) {
   const { store, ref, can, dial } = useApp();
   const { toast, confirm } = useUi();
   const snap = usePhone();
@@ -284,6 +289,7 @@ function LeadView({ lead, timeline, comments, reload }: { lead: Lead; timeline: 
       </aside>
 
       <section className="lead-main" ref={mainRef} aria-label="Aktivitäten">
+        {!inDialer ? <InboxBar leadId={lead.id} from={from} /> : null}
         <div className="lead-actions" role="toolbar" aria-label="Aktionen">
           {can('calling') ? (
             <div className="btn-split">
@@ -1086,5 +1092,69 @@ function LogCallComposer({ lead, onClose }: { lead: Lead; onClose: () => void })
         </Field>
       </div>
     </InlinePanel>
+  );
+}
+
+// ---------- Inbox auf der Lead-Seite: offene Einträge + „Nächster Lead“ (wie in Close) ----------
+function InboxBar({ leadId, from }: { leadId: string; from: string | null }) {
+  const { store } = useApp();
+  const { toast } = useUi();
+  const inbox = useMyInbox();
+  const items = inbox.data ?? [];
+  const mine = items.filter((i) => leadOf(i) === leadId);
+  const queue = inboxLeadIds(items);
+  // nächster Lead: der nächste in Inbox-Reihenfolge – sonst der erste, der nicht dieser ist
+  const idx = queue.indexOf(leadId);
+  const next = (idx >= 0 ? queue[idx + 1] : undefined) ?? queue.find((id) => id !== leadId) ?? null;
+  if (!inbox.data || (from !== 'inbox' && !mine.length)) return null;
+
+  const finish = async (list: InboxItem[]) => {
+    try {
+      for (const i of list) {
+        if (i.kind === 'task') await store.setTaskDone(i.task.id, true);
+        else await store.updateNotifications([i.n.id], { done: true });
+      }
+      bus.emit('tasks');
+      bus.emit('notifications');
+      bus.emit('timeline', leadId);
+    } catch (e) {
+      toast(errMsg(e), { kind: 'error' });
+    }
+  };
+
+  return (
+    <div className="lead-inbox" role="region" aria-label="Inbox für diesen Lead">
+      <div className="lead-inbox-head">
+        <InboxIcon size={16} aria-hidden="true" />
+        <strong>Inbox</strong>
+        <span className="small muted grow">
+          {mine.length ? (mine.length === 1 ? '1 offener Eintrag für diesen Lead' : `${mine.length} offene Einträge für diesen Lead`) : 'Für diesen Lead ist alles erledigt.'}
+        </span>
+        {mine.length > 1 ? (
+          <button type="button" className="btn small" onClick={() => finish(mine)}>
+            <Check size={15} /> Alle erledigt
+          </button>
+        ) : null}
+        {next ? (
+          <button type="button" className="btn small primary" onClick={() => navigate(leadHref(next, 'inbox'))} title="Zum nächsten Lead in deiner Inbox">
+            Nächster Lead <ArrowRight size={15} />
+          </button>
+        ) : from === 'inbox' ? (
+          <a className="btn small" href="#/inbox">Inbox leer – zurück</a>
+        ) : null}
+      </div>
+      {mine.map((i) => (
+        <div className="lead-inbox-item" key={`${i.kind}-${i.id}`}>
+          <span className="grow" style={{ minWidth: 0 }}>
+            <span className="strong">{i.kind === 'task' ? i.task.title : i.n.title}</span>{' '}
+            {i.kind === 'task' ? <DueTag due={i.task.due_at} /> : <span className="xs muted">{formatRelative(i.n.created_at)}</span>}
+            {i.kind === 'note' && i.n.body ? <span className="block xs muted ellipsis">{i.n.body}</span> : null}
+          </span>
+          <button type="button" className="btn small" onClick={() => finish([i])}>
+            <Check size={15} /> Erledigt
+          </button>
+        </div>
+      ))}
+    </div>
   );
 }

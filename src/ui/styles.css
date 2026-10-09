@@ -2389,6 +2389,40 @@ button.lead-row:hover,
   gap: 6px;
 }
 
+/* Inbox auf der Lead-Seite („Nächster Lead“) */
+.lead-inbox {
+  margin-bottom: 12px;
+  border: 1px solid color-mix(in srgb, var(--cobalt) 35%, var(--line));
+  border-radius: 10px;
+  background: var(--cobalt-soft);
+}
+
+.lead-inbox-head {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 8px 10px 8px 12px;
+}
+
+.lead-inbox-head > svg {
+  color: var(--cobalt);
+}
+
+.lead-inbox-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px 8px 12px;
+  border-top: 1px solid color-mix(in srgb, var(--cobalt) 18%, transparent);
+  background: var(--surface);
+  font-size: var(--fs-s);
+}
+
+.lead-inbox-item:last-child {
+  border-radius: 0 0 10px 10px;
+}
+
 /* Aktionen rechts oben */
 .lead-actions {
   display: flex;

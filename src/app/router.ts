@@ -7,7 +7,7 @@ export type InboxBox = 'inbox' | 'later' | 'done';
 export type Route =
   | { name: 'inbox'; box: InboxBox; userId: string | null }
   | { name: 'leads'; viewId: string | null }
-  | { name: 'lead'; id: string }
+  | { name: 'lead'; id: string; from?: string | null } // from = 'inbox': „Nächster Lead“ wie in Close
   | { name: 'views' }
   | { name: 'contacts' }
   | { name: 'opportunities'; pipelineId: string | null }
@@ -35,7 +35,7 @@ export function parseHash(hash: string): Route {
       return { name: 'inbox', box: box === 'later' || box === 'done' ? box : 'inbox', userId: params.get('user') };
     }
     case 'leads':
-      if (id) return { name: 'lead', id };
+      if (id) return { name: 'lead', id, from: params.get('from') };
       return { name: 'leads', viewId: params.get('view') };
     case 'views':
       return { name: 'views' };
@@ -79,7 +79,7 @@ export function routeHref(r: Route): string {
     case 'leads':
       return r.viewId ? `#/leads?view=${encodeURIComponent(r.viewId)}` : '#/leads';
     case 'lead':
-      return `#/leads/${encodeURIComponent(r.id)}`;
+      return `#/leads/${encodeURIComponent(r.id)}${r.from ? `?from=${encodeURIComponent(r.from)}` : ''}`;
     case 'opportunities':
       return r.pipelineId ? `#/opportunities?pipeline=${encodeURIComponent(r.pipelineId)}` : '#/opportunities';
     case 'call':
@@ -100,8 +100,8 @@ export function navigate(to: string | Route) {
   if (location.hash !== href) location.hash = href;
 }
 
-export function leadHref(id: string) {
-  return routeHref({ name: 'lead', id });
+export function leadHref(id: string, from?: string | null) {
+  return routeHref({ name: 'lead', id, from });
 }
 
 export function callHref(id: string) {
