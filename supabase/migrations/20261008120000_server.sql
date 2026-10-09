@@ -553,6 +553,57 @@ end $$;
 revoke all on function public.admin_jobs_state() from public, anon;
 grant execute on function public.admin_jobs_state() to authenticated;
 
+-- Zeitplan einrichten. Ruft die Installation (GitHub-Workflow „Server“) direkt auf, damit niemand
+-- etwas einschalten muss; im CRM geht es über admin_schedule_jobs (nur Admins).
+create or replace function public.crm_schedule_jobs(p_base text)
+returns text language plpgsql security definer set search_path = '' as $$
+declare
+  v_token text;
+begin
+  if p_base !~ '^https://[^ /]+(/[^ ]*)?/functions/v1$' then
+    raise exception 'Ungültige Adresse: %', p_base;
+  end if;
+  begin
+    execute 'create extension if not exists pg_cron';
+    execute 'create extension if not exists pg_net with schema extensions';
+  exception when others then
+    raise exception 'Bitte im Supabase-Dashboard unter Database → Extensions „pg_cron“ und „pg_net“ aktivieren (%).', sqlerrm;
+  end;
+
+  v_token := public.kv_get('CRON_TOKEN');
+  if v_token is null then
+    v_token := replace(gen_random_uuid()::text || gen_random_uuid()::text, '-', '');
+    perform public.kv_set('CRON_TOKEN', v_token);
+  end if;
+
+  execute 'select cron.unschedule(jobid) from cron.job where jobname in (''crm-calendar-sync'', ''crm-jobs'')';
+  execute format(
+    'select cron.schedule(%L, %L, %L)',
+    'crm-calendar-sync', '*/5 * * * *',
+    format('select net.http_post(url := %L, body := %L::jsonb, headers := %L::jsonb)',
+           p_base || '/gcal-sync', '{"source":"cron"}',
+           jsonb_build_object('Content-Type', 'application/json', 'x-crm-cron', v_token)::text));
+  execute format(
+    'select cron.schedule(%L, %L, %L)',
+    'crm-jobs', '* * * * *',
+    format('select net.http_post(url := %L, body := %L::jsonb, headers := %L::jsonb, timeout_milliseconds := 55000)',
+           p_base || '/jobs', '{"source":"cron"}',
+           jsonb_build_object('Content-Type', 'application/json', 'x-crm-cron', v_token)::text));
+  return 'ok';
+end $$;
+
+revoke all on function public.crm_schedule_jobs(text) from public, anon, authenticated;
+grant execute on function public.crm_schedule_jobs(text) to service_role;
+
+create or replace function public.admin_schedule_jobs(p_base text)
+returns text language plpgsql security definer set search_path = '' as $$
+begin
+  if not public.is_admin() then
+    raise exception 'Nur für Admins.';
+  end if;
+  return public.crm_schedule_jobs(p_base);
+end $$;
+
 -- ---------------------------------------------------------------------
 --  Anrufe: Status, Dauer, Leitungen und Aufnahme setzt nur das Telefonsystem.
 --  Im Browser lassen sich Ergebnis, Notiz, Lead/Kontakt und die gemessene Leitungsqualität

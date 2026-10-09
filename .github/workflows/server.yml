@@ -12,6 +12,7 @@ on:
     paths:
       - 'supabase/**'
       - 'scripts/supabase-project.sh'
+      - 'scripts/supabase-jobs.sh'
       - '.github/workflows/server.yml'
   workflow_dispatch:
 
@@ -79,3 +80,7 @@ jobs:
       - name: Server-Funktionen installieren
         if: steps.access.outputs.ready == 'true'
         run: supabase functions deploy --project-ref "$SUPABASE_PROJECT_REF"
+
+      - name: Hintergrundaufgaben einschalten
+        if: steps.access.outputs.ready == 'true'
+        run: bash scripts/supabase-jobs.sh

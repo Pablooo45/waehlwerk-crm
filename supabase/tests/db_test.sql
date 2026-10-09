@@ -345,8 +345,12 @@ select pg_temp.fails($$update public.profiles set role_id = 'user' where id = '0
 update public.org_settings set recording_mode = 'auto' where id = 1;
 select pg_temp.check((select recording_mode = 'auto' from public.org_settings), 'Admin ändert Einstellungen');
 select pg_temp.check((public.admin_jobs_state() ->> 'scheduled')::boolean = false, 'Admin sieht: Hintergrundaufgaben noch aus');
+select pg_temp.fails($$select public.admin_schedule_jobs('http://abc.example/jobs')$$, 'Ungültige Adresse', 'Zeitplan nur mit gültiger Funktions-Adresse');
+select pg_temp.fails($$select public.admin_schedule_jobs('https://abc.supabase.co/functions/v1')$$, 'pg_cron', 'Admin erreicht die Zeitplan-Einrichtung (lokal ohne pg_cron)');
 set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000b';
 select pg_temp.check(public.admin_jobs_state() is null, 'Stand der Hintergrundaufgaben nur für Admins');
+select pg_temp.fails($$select public.admin_schedule_jobs('https://abc.supabase.co/functions/v1')$$, 'Nur für Admins', 'Zeitplan nur durch Admins');
+select pg_temp.fails($$select public.crm_schedule_jobs('https://abc.supabase.co/functions/v1')$$, 'permission denied', 'Zeitplan direkt nur für den Server');
 select pg_temp.fails($$select public.claim_recording_retries(1)$$, 'permission denied', 'Aufnahmen nachholen nur der Server');
 set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000a';
 

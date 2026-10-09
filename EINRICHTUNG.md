@@ -37,7 +37,7 @@ Mehr ist in Supabase nicht nötig: Tabellen, Zugriffsrechte, Zeitplan (`pg_cron`
 
 Sobald der Code im Repository liegt, starten die beiden Workflows „Server“ und „Website“ von selbst (Reiter **Actions**). Nach drei bis fünf Minuten haben beide einen grünen Haken. Waren Secret oder Pages-Einstellung beim Hochladen noch nicht da: im Reiter **Actions** links den Workflow wählen → **Run workflow**.
 
-- **Server** prüft die Server-Funktionen, legt alle Tabellen samt Zugriffsrechten an, schaltet den Zeitplan ein und installiert die zwölf Server-Funktionen (`admin`, `ai-webhook`, `call-control`, `calendly-webhook`, `email`, `gcal-sync`, `jobs`, `sms`, `twilio-sms`, `twilio-status`, `twilio-token`, `twilio-voice`).
+- **Server** prüft die Server-Funktionen, legt alle Tabellen samt Zugriffsrechten an, installiert die zwölf Server-Funktionen (`admin`, `ai-webhook`, `call-control`, `calendly-webhook`, `email`, `gcal-sync`, `jobs`, `sms`, `twilio-sms`, `twilio-status`, `twilio-token`, `twilio-voice`) und schaltet die Hintergrundaufgaben ein.
 - **Website** baut das CRM, veröffentlicht es und trägt die Adresse in Supabase ein (Site URL und Redirect URLs, damit Links aus „Passwort vergessen?“ und aus Einladungen funktionieren). Beim ersten Mal schaltet es außerdem die offene Registrierung ab – neue Kollegen legt ein Admin im CRM an.
 
 Ab jetzt läuft das bei jeder Änderung am Code automatisch.
@@ -67,7 +67,7 @@ Steht oben auf der Seite „Demo-Modus“, kennt die Website ihre Datenbank noch
 1. Supabase → **Authentication → Users → Add user → Create new user**: deine E-Mail und ein Passwort, **Auto Confirm User** einschalten.
    Der erste Benutzer wird automatisch Admin. Wichtig: erst anlegen, wenn der Workflow „Server“ grün ist. Wer vorher angelegt wurde, hat kein Profil – dann den Benutzer löschen und neu anlegen.
 2. Im CRM anmelden.
-3. **Hintergrundaufgaben einschalten**: Nach der ersten Anmeldung steht oben der Hinweis „Die Hintergrundaufgaben sind noch aus“ → **Einschalten** (geht auch unter Einstellungen → Diagnose & Fehler bei „Hintergrundaufgaben“). Damit laufen jede Minute Workflows, geplante E-Mails und SMS, der Postfach-Abruf, das Nachholen von Aufnahmen und die Löschfristen, alle 5 Minuten der Kalender-Abgleich. Kontrolle unter Einstellungen → Diagnose & Fehler („Hintergrundaufgaben“).
+3. **Hintergrundaufgaben** (jede Minute Workflows, geplante E-Mails und SMS, Postfach-Abruf, Aufnahmen nachholen, Löschfristen; alle 5 Minuten der Kalender-Abgleich) schaltet der Workflow „Server“ selbst ein. Kontrolle unter Einstellungen → Diagnose & Fehler („Hintergrundaufgaben“). Steht oben der Hinweis „Die Hintergrundaufgaben sind noch aus“, dort auf **Einschalten** tippen.
 
 ## Schritt 6: Telefonie mit Twilio
 
