@@ -11,4 +11,5 @@ for f in supabase/migrations/*.sql; do
   psql -q -d "$DB" -v ON_ERROR_STOP=1 -f "$f"
 done
 psql -q -d "$DB" -v ON_ERROR_STOP=1 -o /dev/null -f supabase/tests/db_test.sql 2>&1 | sed "s/^psql:[^ ]* NOTICE:  //"
+node scripts/check-queries.mjs "$DB"
 psql -q -d "$DB" -At -c "select 'ALLE DATENBANK-TESTS BESTANDEN'"

@@ -42,7 +42,8 @@ Docker-Registries sind in der Arbeitsumgebung gesperrt; Downloads von GitHub-Rel
 
 ### B – Echter Betrieb geprüft (wichtigste Aufgabe)
 Bisher ist vor allem die Demo-Fassung durchgeklickt. Der echte Betrieb (Supabase + Server-Funktionen) muss genauso sicher laufen.
-- [ ] B1 Lokale Supabase-Umgebung ohne Docker: PostgreSQL 16 + PostgREST + Supabase Auth (GoTrue) aus GitHub-Releases + Server-Funktionen mit Deno + kleiner Proxy auf Port 54321 (`/rest/v1`, `/auth/v1`, `/functions/v1`, Speicher notfalls als Attrappe). Skript `scripts/local-stack.sh start|stop`, kurze Doku hier.
+- [x] B0 Abgleich Code ↔ Datenbank: `scripts/check-queries.mjs` prüft bei `npm run test:db` alle Abfragen (Tabellen, Spalten, Verknüpfungen, Filter, Felder beim Speichern – auch über TypeScript-Typen –, RPC-Parameter, Speicher-Buckets, Realtime). Stand: 281 Abfragen, alle passend.
+- [ ] B1 Lokale Supabase-Umgebung ohne Docker (**wartet auf Nicos Erlaubnis**: PostgREST und Supabase Auth sind Programme von GitHub, die Sicherheitsprüfung lässt sie ohne Zustimmung nicht laufen): PostgreSQL 16 + PostgREST + Supabase Auth (GoTrue) aus GitHub-Releases + Server-Funktionen mit Deno + kleiner Proxy auf Port 54321 (`/rest/v1`, `/auth/v1`, `/functions/v1`, Speicher notfalls als Attrappe). Skript `scripts/local-stack.sh start|stop`, kurze Doku hier.
 - [ ] B2 Website im echten Modus gegen die lokale Umgebung per Playwright durchklicken: Anmelden, Lead anlegen und bearbeiten, Notiz, Aufgabe, Status, eigene Felder, eigene Aktivität, Smart View speichern, Inbox, Pipeline ziehen, Einstellungen (Status, Felder, Aktivitäten, Ergebnisse, Rollen), Team einladen, CSV-Import, Berichte – mit zwei Rollen (Admin und Mitarbeiter mit wenigen Rechten).
 - [ ] B3 Alle Fehler aus B2 beheben; Test dauerhaft unter `tests/real/` mit `npm run test:real`.
 
@@ -62,8 +63,9 @@ Bisher ist vor allem die Demo-Fassung durchgeklickt. Der echte Betrieb (Supabase
 
 ## Stand
 
-- 2026-10-10: A erledigt. Als Nächstes B1.
+- 2026-10-10: A und B0 erledigt. B1 wartet auf Erlaubnis; solange geht es mit C weiter.
 
 ## Protokoll
 
 - 2026-10-10 – Handy-Ansichten der Einstellungs-Listen und Smart Views, Gesprächsnotiz während des Anrufs, „Nächster Lead“ aus der Inbox; Browser-Tests ins Repo übernommen; Arbeitsplan angelegt.
+- 2026-10-10 – Abgleich aller Datenbank-Abfragen mit dem Schema (281 Abfragen, keine Abweichung); fängt Tippfehler in Tabellen, Spalten, Verknüpfungen, Feldern und Funktionen.
