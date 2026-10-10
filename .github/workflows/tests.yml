@@ -56,3 +56,59 @@ jobs:
 
       - name: Server-Funktionen prüfen
         run: npm run test:functions
+
+  echter-betrieb:
+    # Website gegen eine lokale Supabase-Umgebung (PostgREST + Supabase Auth + Server-Funktionen):
+    # Anmelden, Leads, Einstellungen, Team, Rechte, Sammeländerungen über 1000 Leads, Smart-View-Filter.
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    env:
+      PGHOST: localhost
+      PGPORT: 5432
+      PGUSER: postgres
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Pakete installieren
+        run: |
+          npm ci
+          pip install playwright==1.56.0
+          python -m playwright install --with-deps chromium
+
+      - name: Echten Betrieb prüfen
+        run: npm run test:real
+        env:
+          E2E_OUT: ${{ runner.temp }}/bilder
+
+      - name: Bildschirmfotos und Protokolle
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: echter-betrieb
+          path: |
+            ${{ runner.temp }}/bilder
+            .local-stack/logs

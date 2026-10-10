@@ -22,6 +22,7 @@ Nico (Vertrieb, Salus Digital) stellt das Telefon-Team von Close auf Wählwerk u
 | Logik | `npm test` | – |
 | Server-Funktionen | `npm run test:functions` | Deno, z. B. `npm i -g deno` |
 | Datenbank | `PGHOST=/tmp PGPORT=54329 PGUSER=postgres npm run test:db` | PostgreSQL 16 starten, siehe unten |
+| Echter Betrieb | `npm run test:real` | PostgreSQL 16, Deno, Playwright (siehe unten) |
 | Browser (Demo) | `npm run test:e2e` | `pip install --break-system-packages playwright==1.56.0` (passt zum vorinstallierten Chromium 1194) |
 
 PostgreSQL 16 für die Datenbank-Tests (als root; falls es fehlt: `apt-get install -y postgresql-16`):
@@ -43,9 +44,9 @@ Docker-Registries sind in der Arbeitsumgebung gesperrt; Downloads von GitHub-Rel
 ### B – Echter Betrieb geprüft (wichtigste Aufgabe)
 Bisher ist vor allem die Demo-Fassung durchgeklickt. Der echte Betrieb (Supabase + Server-Funktionen) muss genauso sicher laufen.
 - [x] B0 Abgleich Code ↔ Datenbank: `scripts/check-queries.mjs` prüft bei `npm run test:db` alle Abfragen (Tabellen, Spalten, Verknüpfungen, Filter, Felder beim Speichern – auch über TypeScript-Typen –, RPC-Parameter, Speicher-Buckets, Realtime). Stand: 281 Abfragen, alle passend.
-- [ ] B1 Lokale Supabase-Umgebung ohne Docker (**wartet auf Nicos Erlaubnis**: PostgREST und Supabase Auth sind Programme von GitHub, die Sicherheitsprüfung lässt sie ohne Zustimmung nicht laufen): PostgreSQL 16 + PostgREST + Supabase Auth (GoTrue) aus GitHub-Releases + Server-Funktionen mit Deno + kleiner Proxy auf Port 54321 (`/rest/v1`, `/auth/v1`, `/functions/v1`, Speicher notfalls als Attrappe). Skript `scripts/local-stack.sh start|stop`, kurze Doku hier.
-- [ ] B2 Website im echten Modus gegen die lokale Umgebung per Playwright durchklicken: Anmelden, Lead anlegen und bearbeiten, Notiz, Aufgabe, Status, eigene Felder, eigene Aktivität, Smart View speichern, Inbox, Pipeline ziehen, Einstellungen (Status, Felder, Aktivitäten, Ergebnisse, Rollen), Team einladen, CSV-Import, Berichte – mit zwei Rollen (Admin und Mitarbeiter mit wenigen Rechten).
-- [ ] B3 Alle Fehler aus B2 beheben; Test dauerhaft unter `tests/real/` mit `npm run test:real`.
+- [x] B1 Lokale Supabase-Umgebung ohne Docker: `scripts/local-stack.sh start|stop|status` – PostgreSQL 16, PostgREST 12 und Supabase Auth (offizielle GitHub-Releases, Nico hat das erlaubt), Server-Funktionen direkt in einem Deno-Gateway, Speicher- und Realtime-Attrappe, Website auf Port 54320. Wie bei Supabase höchstens 1000 Zeilen pro Abfrage.
+- [x] B2 Website im echten Modus durchgeklickt (`tests/real/flows.py`): Anmelden, Lead-Seite (Notiz, Aktivität, Anruf protokollieren, Status, Feld, Aufgabe, Opportunity, Verlauf-Suche), Hinweise ohne Postfach/Twilio, neuer Lead, Sammeländerung über 2.500 Leads, Status mit über 1000 Leads löschen, Einstellungen, Team (Server-Funktion), Pipeline ziehen, eingeschränkte Rolle (sieht nur eigene/freie Leads, keine Teamverwaltung).
+- [x] B3 Gefundene Fehler behoben (Smart-View-Filter „leer/ausgefüllt“ bei Mehrfachauswahl). Dauerhaft: `npm run test:real` (Filter-Vergleich Datenbank ↔ JavaScript über alle Felder und Bedingungen + Durchklick-Test), läuft auch bei jeder Änderung auf GitHub.
 
 ### C – Close-Funktionen, die noch fehlen
 - [ ] C1 E-Mail-Öffnungen und Link-Klicks erfassen wie in Close (Zählpixel und Weiterleitungs-Links über eine Server-Funktion): im Verlauf „2× geöffnet“, Hinweis in der Inbox, in den Einstellungen abschaltbar.
@@ -63,9 +64,10 @@ Bisher ist vor allem die Demo-Fassung durchgeklickt. Der echte Betrieb (Supabase
 
 ## Stand
 
-- 2026-10-10: A und B0 erledigt. B1 wartet auf Erlaubnis; solange geht es mit C weiter.
+- 2026-10-10: A und B erledigt. Als Nächstes C1 (E-Mail-Öffnungen und Klicks).
 
 ## Protokoll
 
 - 2026-10-10 – Handy-Ansichten der Einstellungs-Listen und Smart Views, Gesprächsnotiz während des Anrufs, „Nächster Lead“ aus der Inbox; Browser-Tests ins Repo übernommen; Arbeitsplan angelegt.
 - 2026-10-10 – Abgleich aller Datenbank-Abfragen mit dem Schema (281 Abfragen, keine Abweichung); fängt Tippfehler in Tabellen, Spalten, Verknüpfungen, Feldern und Funktionen.
+- 2026-10-10 – Echter Betrieb geprüft: lokale Supabase-Umgebung (`scripts/local-stack.sh`), Durchklick-Test mit zwei Rollen und Filter-Vergleich (239 Bedingungen). Gefunden und behoben: Filter „ist leer/ausgefüllt“ für Mehrfachauswahl-Felder zählte eine leere Auswahl als ausgefüllt.

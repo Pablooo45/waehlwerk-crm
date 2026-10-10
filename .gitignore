@@ -9,3 +9,4 @@ supabase/.temp/
 supabase/.branches/
 *.tsbuildinfo
 __pycache__/
+.local-stack/

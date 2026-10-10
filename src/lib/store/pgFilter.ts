@@ -121,9 +121,13 @@ export function conditionExpr(c: Condition, ctx: PgFilterCtx): string | null {
       const cf = ctx.customFields.find((f) => f.key === key);
       const txt = `custom->>${key}`;
       const js = `custom->${key}`;
-      const emptyExpr = or(`${txt}.is.null`, `${txt}.eq.""`);
+      // Mehrfachauswahl ohne Häkchen ist eine leere Liste ([]) – zählt wie leer
+      const multi = cf?.type === 'multichoice';
+      const emptyExpr = multi ? or(`${txt}.is.null`, `${txt}.eq.""`, `${txt}.eq."[]"`) : or(`${txt}.is.null`, `${txt}.eq.""`);
       if (c.op === 'empty') return emptyExpr;
-      if (c.op === 'not_empty') return and(`${txt}.not.is.null`, `${txt}.neq.""`);
+      if (c.op === 'not_empty') {
+        return multi ? and(`${txt}.not.is.null`, `${txt}.neq.""`, `${txt}.neq."[]"`) : and(`${txt}.not.is.null`, `${txt}.neq.""`);
+      }
       if (cf?.type === 'user') {
         if (c.op === 'me') return `${txt}.eq.${ctx.me}`;
         const ids = uuidList(c.value);

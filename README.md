@@ -89,8 +89,12 @@ npm test             # Tests der Browser-Logik (Vitest)
 npm run build        # echtes CRM nach dist/
 npm run build:demo-page  # Ein-Datei-Demo nach dist-demo/waehlwerk-demo.html
 npm run test:functions   # Tests der Server-Funktionen (braucht Deno)
-npm run test:db          # Datenbank-Tests (braucht lokales PostgreSQL)
+npm run test:db          # Datenbank-Tests + Abgleich aller Abfragen im Code mit dem Schema (lokales PostgreSQL)
+npm run test:e2e         # Klick-Tests gegen die Demo (Playwright für Python)
+npm run test:real        # echter Betrieb: lokale Supabase-Umgebung, Filter-Vergleich, Klick-Tests mit zwei Rollen
 ```
+
+`scripts/local-stack.sh start` startet eine lokale Supabase-Umgebung ohne Docker (PostgreSQL, PostgREST, Supabase Auth, die Server-Funktionen und die Website unter http://127.0.0.1:54320). Die Tests laufen bei jeder Änderung auch auf GitHub (Workflow „Tests“).
 
 | Ordner | Inhalt |
 | --- | --- |
