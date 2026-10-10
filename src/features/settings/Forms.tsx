@@ -82,8 +82,10 @@ export default function Forms() {
                   <strong className="block ellipsis">{t.name}</strong>
                   {t.description ? <span className="block xs muted ellipsis">{t.description}</span> : null}
                 </span>
-                {t.archived ? <Tag tone="soft">archiviert</Tag> : null}
-                <span className="small muted field-type">{t.fields.length === 1 ? '1 Feld' : `${t.fields.length} Felder`}</span>
+                <span className="sort-meta">
+                  {t.archived ? <Tag tone="soft">archiviert</Tag> : null}
+                  <span className="small muted field-type">{t.fields.length === 1 ? '1 Feld' : `${t.fields.length} Felder`}</span>
+                </span>
               </button>
               <button type="button" className="icon-btn small" onClick={() => setSelected(t.id)} aria-label={`${t.name} bearbeiten`}>
                 <Pencil />
@@ -178,10 +180,12 @@ function ActivityTypeEditor({ type, onBack }: { type: ActivityType; onBack: () =
                   <strong className="block ellipsis">{f.label}</strong>
                   {f.choices?.length ? <span className="block xs muted ellipsis">{f.choices.join(', ')}</span> : f.description ? <span className="block xs muted ellipsis">{f.description}</span> : null}
                 </span>
-                {f.required ? <Tag tone="amber">Pflicht</Tag> : null}
-                {f.creates_task ? <Tag tone="blue">Wiedervorlage</Tag> : null}
-                {f.sets_lead_date?.field ? <Tag tone="blue">setzt Datum</Tag> : null}
-                <span className="small muted field-type">{TYPE_LABEL[f.type as CustomFieldType] ?? f.type}</span>
+                <span className="sort-meta">
+                  {f.required ? <Tag tone="amber">Pflicht</Tag> : null}
+                  {f.creates_task ? <Tag tone="blue">Wiedervorlage</Tag> : null}
+                  {f.sets_lead_date?.field ? <Tag tone="blue">setzt Datum</Tag> : null}
+                  <span className="small muted field-type">{TYPE_LABEL[f.type as CustomFieldType] ?? f.type}</span>
+                </span>
               </button>
               <button type="button" className="icon-btn small" onClick={() => setEdit(i)} aria-label={`${f.label} bearbeiten`}>
                 <Pencil />

@@ -90,9 +90,11 @@ function LeadStatuses() {
             <button type="button" className="sort-main" onClick={() => setEdit(s)}>
               <span className="dot" style={{ background: s.color }} aria-hidden="true" />
               <strong className="grow ellipsis">{s.label}</strong>
-              {s.is_default ? <Tag tone="blue">Standard für neue Leads</Tag> : null}
-              {s.kind !== 'open' ? <Tag tone={s.kind === 'won' ? 'green' : 'soft'}>{KIND_LABEL[s.kind]}</Tag> : null}
-              <span className="muted small num sort-count">{counts.get(s.id) ?? 0} Leads</span>
+              <span className="sort-meta">
+                {s.is_default ? <Tag tone="blue">Standard für neue Leads</Tag> : null}
+                {s.kind !== 'open' ? <Tag tone={s.kind === 'won' ? 'green' : 'soft'}>{KIND_LABEL[s.kind]}</Tag> : null}
+                <span className="muted small num sort-count">{counts.get(s.id) ?? 0} Leads</span>
+              </span>
             </button>
             <button type="button" className="icon-btn small" onClick={() => setEdit(s)} aria-label={`${s.label} bearbeiten`}>
               <Pencil />
@@ -272,7 +274,7 @@ function Pipelines() {
                 <button type="button" className="sort-main" onClick={() => setEdit(s)}>
                   <span className="dot" style={{ background: s.color }} aria-hidden="true" />
                   <strong className="grow ellipsis">{s.label}</strong>
-                  {s.kind !== 'open' ? <Tag tone={s.kind === 'won' ? 'green' : 'soft'}>{KIND_LABEL[s.kind]}</Tag> : null}
+                  <span className="sort-meta">{s.kind !== 'open' ? <Tag tone={s.kind === 'won' ? 'green' : 'soft'}>{KIND_LABEL[s.kind]}</Tag> : null}</span>
                 </button>
                 <button type="button" className="icon-btn small" onClick={() => setEdit(s)} aria-label={`${s.label} bearbeiten`}>
                   <Pencil />
@@ -582,10 +584,12 @@ function Fields() {
                   <strong className="block ellipsis">{f.label}</strong>
                   {f.choices.length ? <span className="block xs muted ellipsis">{f.choices.join(', ')}</span> : null}
                 </span>
-                {f.always_show ? <Tag tone="blue">immer zeigen</Tag> : null}
-                {f.show_in_list ? <Tag tone="soft">Spalte</Tag> : null}
-                {f.restricted ? <Tag tone="amber"><Lock size={11} aria-hidden="true" /> geschützt</Tag> : null}
-                <span className="small muted field-type">{TYPE_LABEL[f.type]}</span>
+                <span className="sort-meta">
+                  {f.always_show ? <Tag tone="blue">immer zeigen</Tag> : null}
+                  {f.show_in_list ? <Tag tone="soft">Spalte</Tag> : null}
+                  {f.restricted ? <Tag tone="amber"><Lock size={11} aria-hidden="true" /> geschützt</Tag> : null}
+                  <span className="small muted field-type">{TYPE_LABEL[f.type]}</span>
+                </span>
               </button>
               <button type="button" className="icon-btn small" onClick={() => setEdit(f)} aria-label={`${f.label} bearbeiten`}>
                 <Pencil />

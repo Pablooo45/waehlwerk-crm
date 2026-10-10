@@ -109,7 +109,7 @@ export default function ViewsPage() {
         <Empty title={term ? 'Nichts gefunden' : 'Noch keine Smart Views'}>{term ? 'Anderen Suchbegriff versuchen.' : 'Filtere die Leadliste und speichere die Ansicht.'}</Empty>
       ) : (
         groups.map((g) => (
-          <section key={g.key} className="section">
+          <section key={g.key} className="views-group">
             <h2>{g.title} <span className="muted num small">{g.items.length}</span></h2>
             <div className="panel">
               <div className="list">
@@ -141,12 +141,12 @@ export default function ViewsPage() {
                             : 'Alle Leads'}
                           {v.filters.q ? `, Suche „${v.filters.q}“` : ''}
                         </div>
-                        <div className="xs muted">von {name(v.created_by)}</div>
+                        {v.created_by ? <div className="xs muted">von {name(v.created_by)}</div> : null}
                       </div>
                       <span className="num view-count" title="Leads in dieser Ansicht">
                         {n === undefined ? '…' : n < 0 ? '–' : n.toLocaleString('de-DE')}
                       </span>
-                      <div className="row gap-4">
+                      <div className="row gap-4 view-actions">
                         <a className="icon-btn small" href={routeHref({ name: 'leads', viewId: v.id })} aria-label="Öffnen" title="Öffnen">
                           <Eye />
                         </a>

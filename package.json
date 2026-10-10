@@ -13,6 +13,7 @@
     "test": "vitest run",
     "test:functions": "cd supabase/functions && deno test --allow-env _tests/",
     "test:db": "scripts/test-db.sh",
+    "test:e2e": "bash scripts/e2e.sh",
     "build:demo-page": "vite build --mode demo && node scripts/demo-page.mjs"
   },
   "dependencies": {

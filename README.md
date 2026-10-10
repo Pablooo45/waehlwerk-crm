@@ -15,6 +15,7 @@ Die Einrichtung Schritt für Schritt steht in **[EINRICHTUNG.md](EINRICHTUNG.md)
 **Telefonie**
 - Anrufen direkt aus dem Browser (Twilio, Server in Frankfurt, Ausweich-Server Dublin, Opus-Codec, `answerOnBridge`: kein Klicken, keine Verzögerung beim Verbinden)
 - Power Dialer: wählt eine Liste nacheinander ab, sperrt den Lead für Kollegen, überspringt Kunden, „nicht anrufen“ und gerade erst Angerufene
+- Gesprächsnotiz wie in Close: während des Anrufs mitschreiben (Karte auf der Lead-Seite oder „Notiz“ in der Anrufleiste), der Text landet automatisch in der Nachbearbeitung
 - Absendernummer pro Person, „Local Presence“ (Nummer mit passender Vorwahl wird automatisch gewählt)
 - Eingehende Anrufe wie in einer Telefonanlage: Rufzeiten, Begrüßung, Telefonmenü („Für den Vertrieb die 1“), zuerst der Zuständige, dann Gruppe oder Team (gleichzeitig oder reihum), Weiterleitung aufs Handy mit Annahme per Taste, danach Mailbox
 - Verpasste Anrufe und Mailbox-Nachrichten werden zur Aufgabe, der Zuständige wird benachrichtigt

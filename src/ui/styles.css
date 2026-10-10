@@ -3164,11 +3164,51 @@ button.lead-row:hover,
   opacity: 0.55;
 }
 
+.sort-meta {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.sort-meta:empty {
+  display: none;
+}
+
 .sort-count,
 .field-type {
   flex: none;
   min-width: 70px;
   text-align: right;
+}
+
+/* Am Handy: Name in die erste Zeile, Typ/Anzahl und Kennzeichen darunter */
+@media (max-width: 600px) {
+  .sort-main {
+    flex-wrap: wrap;
+    row-gap: 4px;
+  }
+
+  .sort-main > .grow {
+    flex: 1 1 0;
+  }
+
+  .sort-meta {
+    flex: 1 1 100%;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  .sort-main:has(> .dot) .sort-meta {
+    padding-left: 21px;
+  }
+
+  .sort-meta .sort-count,
+  .sort-meta .field-type {
+    order: -1;
+    min-width: 0;
+    text-align: left;
+  }
 }
 
 .switch-row {
@@ -3290,6 +3330,12 @@ button.lead-row:hover,
 .section > p.muted {
   margin-bottom: 14px;
   max-width: 70ch;
+}
+
+@media (max-width: 600px) {
+  .section {
+    padding: 14px;
+  }
 }
 
 .callout {
@@ -5393,8 +5439,37 @@ kbd.kbd-on-dark {
 }
 
 /* ---------- Smart Views ---------- */
+.views-group {
+  margin-bottom: 22px;
+}
+
+.views-group > h2 {
+  margin: 0 0 8px;
+}
+
 .view-row {
   align-items: flex-start;
+}
+
+@media (max-width: 600px) {
+  .view-row {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    column-gap: 8px;
+    row-gap: 2px;
+    padding: 10px 10px 6px;
+  }
+
+  .view-row .view-count {
+    align-self: start;
+    min-width: 0;
+    font-size: var(--fs-m);
+  }
+
+  .view-row .view-actions {
+    grid-column: 2 / -1;
+    margin-left: -6px;
+  }
 }
 
 .view-row .icon-btn.active {

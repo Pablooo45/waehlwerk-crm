@@ -1,0 +1,31 @@
+import sys
+from playwright.sync_api import expect, sync_playwright
+URL, OUT = sys.argv[1], sys.argv[2]
+errors = []
+with sync_playwright() as p:
+    b = p.chromium.launch(args=['--use-fake-ui-for-media-stream', '--use-fake-device-for-media-stream'])
+    page = b.new_page(viewport={'width': 1440, 'height': 900})
+    page.on('pageerror', lambda e: errors.append(f'pageerror {e}'))
+    page.on('console', lambda m: errors.append(f'console {m.text}') if m.type == 'error' else None)
+    page.goto(URL); page.wait_for_timeout(1200)
+    page.locator('.user-pick button', has_text='Mia').first.click(); page.wait_for_timeout(2000)
+    page.evaluate("location.hash='#/leads'"); page.wait_for_timeout(1200)
+    page.locator('a.lead-name').nth(1).click(); page.wait_for_timeout(1500)
+    page.locator('.lead-actions .btn.call').first.click()
+    expect(page.locator('.live-call-card')).to_be_visible(timeout=5000)
+    page.wait_for_timeout(2500)
+    page.locator('.live-call-card textarea').fill('Notiz während des Gesprächs: Chefin ab 14 Uhr da')
+    page.locator('.callbar button', has_text='Notiz').click()
+    expect(page.locator('.popover .call-note textarea')).to_have_value('Notiz während des Gesprächs: Chefin ab 14 Uhr da')
+    page.keyboard.press('Escape')
+    page.screenshot(path=f'{OUT}/callnote-live.png')
+    page.locator('.callbar .ctrl.hangup').click()
+    expect(page.locator('#wrap-note')).to_have_value('Notiz während des Gesprächs: Chefin ab 14 Uhr da', timeout=5000)
+    page.keyboard.press('2')
+    page.locator('.wrapup button', has_text='Speichern').click()
+    expect(page.locator('.tl-item', has_text='Chefin ab 14 Uhr da').first).to_be_visible(timeout=5000)
+    expect(page.locator('.live-call-card')).to_have_count(0)
+    print('Gesprächsnotiz: OK')
+    b.close()
+print('\n'.join(errors) if errors else 'KEINE FEHLER')
+sys.exit(1 if errors else 0)

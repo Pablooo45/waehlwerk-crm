@@ -7,3 +7,5 @@ dist-demo/
 .env.*
 supabase/.temp/
 supabase/.branches/
+*.tsbuildinfo
+__pycache__/

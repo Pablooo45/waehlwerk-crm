@@ -39,13 +39,14 @@ export function clearCallNote(id: string) {
   notes.delete(id);
 }
 
+function subscribe(cb: () => void) {
+  listeners.add(cb);
+  return () => {
+    listeners.delete(cb);
+  };
+}
+
 export function useCallNote(id: string | null | undefined): [string, (text: string) => void] {
-  const text = useSyncExternalStore(
-    (cb) => {
-      listeners.add(cb);
-      return () => listeners.delete(cb);
-    },
-    () => getCallNote(id),
-  );
+  const text = useSyncExternalStore(subscribe, () => getCallNote(id));
   return [text, (t: string) => id && setCallNote(id, t)];
 }

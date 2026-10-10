@@ -1,0 +1,69 @@
+# Arbeitsplan: Wählwerk fertig machen vor dem Start
+
+Nico (Vertrieb, Salus Digital) stellt das Telefon-Team von Close auf Wählwerk um. Vor dem Start soll Wählwerk **so aufgebaut sein und so funktionieren wie Close** (gleiche Funktionen, gleiche Abläufe, eigenes Aussehen ohne Close-Branding), **maximal optimiert und fehlerfrei**. Diese Datei ist der gemeinsame Stand für alle Arbeitssitzungen, auch für die automatischen Läufe, die weitermachen, wenn eine Sitzung (z. B. wegen des Nutzungslimits) stehen bleibt.
+
+## Regeln für jede Sitzung
+
+1. Zuerst diese Datei, dann `README.md` und `EINRICHTUNG.md` lesen.
+2. **Nur eine Sitzung arbeitet gleichzeitig.** Vor dem Start: `git fetch origin && git log -1 --format=%cI origin/main`. Ist der letzte Commit auf `main` jünger als **100 Minuten**, arbeitet vermutlich gerade eine andere Sitzung: nichts ändern, beenden.
+3. **Lebenszeichen:** Während der Arbeit mindestens alle **45 Minuten** etwas auf `main` pushen – einen fertigen Teilschritt oder nur den Abschnitt „Stand“ unten.
+4. Nach jeder erledigten Aufgabe: Tests (unten), Commit mit deutscher Nachricht (was es dem Team bringt), `git pull --rebase origin main`, Push, Haken hier setzen, Zeile im Protokoll.
+5. **Datenbank:** Schema-Änderungen nur als **neue** Datei in `supabase/migrations/` (Zeitstempel im Namen). Bestehende Migrationen nie ändern – die Datenbank kann inzwischen live sein.
+6. **Sicherheit:** keine Konten anlegen, keine Passwörter, Tokens oder API-Schlüssel irgendwo eintragen, keine OAuth-Freigaben erteilen, keine Kundendaten aus Close lesen. Close dient nur als Vorbild für Aufbau und Abläufe; in der Oberfläche steht der Name Close nur beim Umzug.
+7. **Oberfläche:** Deutsch, einfach, Du-Form. Jede Änderung auf Desktop (1440 px), Handy (390 px) und im Dunkelmodus ansehen (Bildschirmfoto).
+8. Nicht nachfragen (Nico ist oft nicht da): die vernünftigste Lösung wählen und im Protokoll begründen. Ausnahme: Aufgaben, die hier ausdrücklich „nur nach Rückfrage“ heißen.
+9. Wenn alle Aufgaben erledigt sind: den geplanten Auftrag **„Wählwerk weiterbauen“** abschalten (`list_triggers` → `update_trigger` mit `enabled: false`) und das im Protokoll vermerken.
+
+## Tests
+
+| Was | Befehl | Einmalig nötig |
+| --- | --- | --- |
+| Typen | `npm run typecheck` | `npm ci` |
+| Logik | `npm test` | – |
+| Server-Funktionen | `npm run test:functions` | Deno, z. B. `npm i -g deno` |
+| Datenbank | `PGHOST=/tmp PGPORT=54329 PGUSER=postgres npm run test:db` | PostgreSQL 16 starten, siehe unten |
+| Browser (Demo) | `npm run test:e2e` | `pip install --break-system-packages playwright==1.56.0` (passt zum vorinstallierten Chromium 1194) |
+
+PostgreSQL 16 für die Datenbank-Tests (als root; falls es fehlt: `apt-get install -y postgresql-16`):
+
+```bash
+mkdir -p /var/tmp/pgtest && chown postgres /var/tmp/pgtest
+su postgres -c "/usr/lib/postgresql/16/bin/initdb -D /var/tmp/pgtest/data"   # nur beim ersten Mal
+su postgres -c "/usr/lib/postgresql/16/bin/pg_ctl -D /var/tmp/pgtest/data -o '-p 54329 -k /tmp' -l /var/tmp/pgtest/pg.log start"
+```
+
+Docker-Registries sind in der Arbeitsumgebung gesperrt; Downloads von GitHub-Releases funktionieren.
+
+## Aufgaben
+
+### A – Sichern
+- [x] A1 Handy-Ansichten (Einstellungs-Listen, Smart Views), Gesprächsnotiz, Browser-Tests ins Repo (`tests/e2e`, `npm run test:e2e`)
+- [x] A2 Dieser Arbeitsplan und die automatische Fortsetzung
+
+### B – Echter Betrieb geprüft (wichtigste Aufgabe)
+Bisher ist vor allem die Demo-Fassung durchgeklickt. Der echte Betrieb (Supabase + Server-Funktionen) muss genauso sicher laufen.
+- [ ] B1 Lokale Supabase-Umgebung ohne Docker: PostgreSQL 16 + PostgREST + Supabase Auth (GoTrue) aus GitHub-Releases + Server-Funktionen mit Deno + kleiner Proxy auf Port 54321 (`/rest/v1`, `/auth/v1`, `/functions/v1`, Speicher notfalls als Attrappe). Skript `scripts/local-stack.sh start|stop`, kurze Doku hier.
+- [ ] B2 Website im echten Modus gegen die lokale Umgebung per Playwright durchklicken: Anmelden, Lead anlegen und bearbeiten, Notiz, Aufgabe, Status, eigene Felder, eigene Aktivität, Smart View speichern, Inbox, Pipeline ziehen, Einstellungen (Status, Felder, Aktivitäten, Ergebnisse, Rollen), Team einladen, CSV-Import, Berichte – mit zwei Rollen (Admin und Mitarbeiter mit wenigen Rechten).
+- [ ] B3 Alle Fehler aus B2 beheben; Test dauerhaft unter `tests/real/` mit `npm run test:real`.
+
+### C – Close-Funktionen, die noch fehlen
+- [ ] C1 E-Mail-Öffnungen und Link-Klicks erfassen wie in Close (Zählpixel und Weiterleitungs-Links über eine Server-Funktion): im Verlauf „2× geöffnet“, Hinweis in der Inbox, in den Einstellungen abschaltbar.
+- [ ] C2 Smart Views beim Close-Umzug mit ihren Filtern übernehmen (Close-Abfrage → eigene Filter, soweit übersetzbar; der Rest als Hinweis an der Smart View).
+- [ ] C3 Notizen mit Formatierung wie in Close (fett, kursiv, Listen, Links) – im Editor und im Verlauf.
+- [ ] C4 Predictive Dialer (mehrere Leitungen gleichzeitig) – **nur nach Rückfrage bei Nico**: In Deutschland heikel, weil dabei „stille Anrufe“ entstehen (Kunde hebt ab, niemand ist dran).
+
+### D – Leistung und Stabilität
+- [ ] D1 20.000 Leads: Leadliste, Suche, Smart-View-Zählungen und Lead-Seite bleiben schnell (Indizes, Seitenweise laden, Zählungen begrenzen) – im lokalen Stack mit Testdaten messen.
+- [ ] D2 Fehlerfälle verständlich: Internet weg, Anmeldung abgelaufen, Mikrofon oder Twilio nicht verfügbar, Server-Funktion antwortet nicht.
+
+### E – Abschluss
+- [ ] E1 Rundgang Desktop, Handy, Dunkelmodus; Texte und Abstände glätten.
+- [ ] E2 README und EINRICHTUNG aktualisieren, Demo neu bauen.
+
+## Stand
+
+- 2026-10-10: A erledigt. Als Nächstes B1.
+
+## Protokoll
+
+- 2026-10-10 – Handy-Ansichten der Einstellungs-Listen und Smart Views, Gesprächsnotiz während des Anrufs, „Nächster Lead“ aus der Inbox; Browser-Tests ins Repo übernommen; Arbeitsplan angelegt.
