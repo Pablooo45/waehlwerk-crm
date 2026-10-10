@@ -5,7 +5,7 @@ Nico (Vertrieb, Salus Digital) stellt das Telefon-Team von Close auf Wählwerk u
 ## Regeln für jede Sitzung
 
 1. Zuerst diese Datei, dann `README.md` und `EINRICHTUNG.md` lesen.
-2. **Nur eine Sitzung arbeitet gleichzeitig.** Vor dem Start: `git fetch origin && git log -1 --format=%cI origin/main`. Ist der letzte Commit auf `main` jünger als **100 Minuten**, arbeitet vermutlich gerade eine andere Sitzung: nichts ändern, beenden.
+2. **Nur eine Sitzung arbeitet gleichzeitig.** Vor dem Start: `git fetch origin main && git log -1 --format=%cI FETCH_HEAD`. Ist der letzte Commit auf `main` jünger als **100 Minuten**, arbeitet vermutlich gerade eine andere Sitzung: nichts ändern, beenden.
 3. **Lebenszeichen:** Während der Arbeit mindestens alle **45 Minuten** etwas auf `main` pushen – einen fertigen Teilschritt oder nur den Abschnitt „Stand“ unten.
 4. Nach jeder erledigten Aufgabe: Tests (unten), Commit mit deutscher Nachricht (was es dem Team bringt), `git pull --rebase origin main`, Push, Haken hier setzen, Zeile im Protokoll.
 5. **Datenbank:** Schema-Änderungen nur als **neue** Datei in `supabase/migrations/` (Zeitstempel im Namen). Bestehende Migrationen nie ändern – die Datenbank kann inzwischen live sein.
