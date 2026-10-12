@@ -60,11 +60,12 @@ Bisher ist vor allem die Demo-Fassung durchgeklickt. Der echte Betrieb (Supabase
 
 ### E – Abschluss
 - [x] E1 Rundgang Desktop, Handy, Dunkelmodus (alle Hauptseiten, Lead-Seite mit Notiz-Editor, Einstellungen): keine Konsolenfehler. Behoben: Zähler an den Reitern im Dunkelmodus unsichtbar, Berichte zeigten „– der Erreichten“, wenn noch niemand erreicht wurde.
-- [ ] E2 README und EINRICHTUNG aktualisieren, Demo neu bauen.
+- [x] E2 README und EINRICHTUNG geprüft: alle genannten Knöpfe, Menüpunkte und Meldungen mit der Oberfläche abgeglichen und korrigiert, 13 Server-Funktionen, Workflow „Tests“. Demo neu gebaut und veröffentlicht.
 
 ## Stand
 
-- 2026-10-12: C1–C3, D1, D2 und E1 erledigt (C4 wartet auf Nicos Entscheidung). Als Nächstes E2 (Doku, Demo).
+- 2026-10-12: **Alle Aufgaben erledigt außer C4** (Predictive Dialer, wartet auf Nicos Entscheidung). Automatische Läufe haben nichts mehr zu tun: sofort beenden, nichts ändern.
+- Offen bei Nico: Supabase-Projekt, Access Token und das GitHub-Secret `SUPABASE_ACCESS_TOKEN` (EINRICHTUNG.md, Schritt 1–2). Bis dahin überspringt der Workflow „Server“ die Installation, die Website läuft im Demo-Modus.
 
 ## Protokoll
 
@@ -77,3 +78,4 @@ Bisher ist vor allem die Demo-Fassung durchgeklickt. Der echte Betrieb (Supabase
 - 2026-10-12 – Leistung mit 22.500 Leads (D1). Wichtigste Erkenntnis: Zeilenrechte mit Funktionsaufruf je Zeile und JSON-Vergleiche unter Zeilenrechten (dürfen keine Indizes nutzen) waren die Bremsen. Lösung ohne Änderung der Rechte-Logik: Prüfung als EXISTS direkt in den Regeln (gleiche Sichtbarkeit wie can_see_lead, von den Datenbank-Tests abgesichert), Dubletten-Suche mit eigener Sichtbarkeitsprüfung.
 - 2026-10-12 – Fehlerfälle (D2): Offline-Hinweis, automatische Abmeldung mit Erklärung, Absturz-Schutz für Seiten, Zeitlimits für Anfragen.
 - 2026-10-12 – Rundgang (E1) in hell, dunkel und am Handy mit Bildschirmfotos. Zwei kleine Darstellungsfehler behoben (Reiter-Zähler im Dunkelmodus, Prozentangaben in den Berichten ohne Grundlage); README um Notiz-Formatierung, Leistung, `test:perf` und `email-track` ergänzt.
+- 2026-10-12 – Abschluss (E2): Doku mit der Oberfläche abgeglichen (Knopfnamen beim Postfach und bei den Abschriften, Meldung zu Port 587, Zahl der Server-Funktionen, Workflow „Tests“). GitHub-Workflows laufen fest auf Ubuntu 24.04, weil GitHub „ubuntu-latest“ ab 19. Oktober auf Ubuntu 26 umstellt und die Tests sonst ohne Änderung bei uns anders laufen könnten. Demo neu veröffentlicht. Geplante Aufgaben: In der Liste stehen nur zwei erledigte Erinnerungen (beide aus), keine aktive „Wählwerk weiterbauen“ – falls Nico sie in der Desktop-App angelegt hat, schaltet er sie dort ab.

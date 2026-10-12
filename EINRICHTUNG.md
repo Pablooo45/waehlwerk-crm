@@ -35,9 +35,9 @@ Mehr ist in Supabase nicht nötig: Tabellen, Zugriffsrechte, Zeitplan (`pg_cron`
 
 ## Schritt 3: Installieren lassen
 
-Sobald der Code im Repository liegt, starten die beiden Workflows „Server“ und „Website“ von selbst (Reiter **Actions**). Nach drei bis fünf Minuten haben beide einen grünen Haken. Waren Secret oder Pages-Einstellung beim Hochladen noch nicht da: im Reiter **Actions** links den Workflow wählen → **Run workflow**.
+Sobald der Code im Repository liegt, starten die beiden Workflows „Server“ und „Website“ von selbst (Reiter **Actions**). Nach drei bis fünf Minuten haben beide einen grünen Haken. Daneben läuft „Tests“: Er prüft bei jeder Änderung Datenbank, Server-Funktionen und Abläufe im Browser und braucht keine Einstellungen. Waren Secret oder Pages-Einstellung beim Hochladen noch nicht da: im Reiter **Actions** links den Workflow wählen → **Run workflow**.
 
-- **Server** prüft die Server-Funktionen, legt alle Tabellen samt Zugriffsrechten an, installiert die zwölf Server-Funktionen (`admin`, `ai-webhook`, `call-control`, `calendly-webhook`, `email`, `gcal-sync`, `jobs`, `sms`, `twilio-sms`, `twilio-status`, `twilio-token`, `twilio-voice`) und schaltet die Hintergrundaufgaben ein.
+- **Server** prüft die Server-Funktionen, legt alle Tabellen samt Zugriffsrechten an, installiert die dreizehn Server-Funktionen (`admin`, `ai-webhook`, `call-control`, `calendly-webhook`, `email`, `email-track`, `gcal-sync`, `jobs`, `sms`, `twilio-sms`, `twilio-status`, `twilio-token`, `twilio-voice`) und schaltet die Hintergrundaufgaben ein.
 - **Website** baut das CRM, veröffentlicht es und trägt die Adresse in Supabase ein (Site URL und Redirect URLs, damit Links aus „Passwort vergessen?“ und aus Einladungen funktionieren). Beim ersten Mal schaltet es außerdem die offene Registrierung ab – neue Kollegen legt ein Admin im CRM an.
 
 Ab jetzt läuft das bei jeder Änderung am Code automatisch.
@@ -98,7 +98,7 @@ Jede Person braucht:
 
 ## Schritt 8: E-Mail-Postfach verbinden (jede Person)
 
-**Einstellungen → E-Mail-Postfach**: Anbieter wählen (IONOS, Google, Microsoft, STRATO oder andere), E-Mail-Adresse und Passwort → **Prüfen** → **Verbinden**.
+**Einstellungen → E-Mail-Postfach**: Anbieter wählen (IONOS, Google, Microsoft, STRATO oder andere), E-Mail-Adresse und Passwort → **Verbindung testen** → **Speichern**.
 - Das CRM nutzt die verschlüsselten Ports **465 (Postausgang)** und **993 (Posteingang)**. Port 587 ist bei Supabase gesperrt.
 - Google Workspace und Microsoft 365 brauchen bei aktivierter Zwei-Faktor-Anmeldung ein **App-Passwort** statt des normalen Passworts.
 - Ab dann gehen E-Mails aus dem CRM über das eigene Postfach (mit Kopie im „Gesendet“-Ordner), und Antworten von Kontakten erscheinen innerhalb von 5 Minuten beim Lead. Beim ersten Abruf werden nur die Mails der letzten 7 Tage übernommen.
@@ -125,7 +125,7 @@ Jede Person braucht:
 
 1. Konto bei [assemblyai.com](https://www.assemblyai.com) anlegen → **API Keys** → Schlüssel kopieren → im CRM **Einstellungen → KI & Abschriften** eintragen. Abgeschrieben wird auf Servern in der EU.
 2. Für Zusammenfassungen: Konto bei [console.anthropic.com](https://console.anthropic.com) → **API Keys** → Schlüssel im CRM eintragen. Das CRM nutzt Claude Sonnet 5.5.
-3. **Einstellungen → Aufnahmen & Abschriften**: „Jedes Gespräch automatisch abschreiben“ und „Zusammenfassung schreiben“ einschalten – oder ausgeschaltet lassen und bei einzelnen Gesprächen auf **Abschrift erstellen** klicken.
+3. **Einstellungen → Aufnahmen & Abschriften**: „Jedes aufgenommene Gespräch automatisch abschreiben“ und „KI-Zusammenfassung mit nächsten Schritten und Einwänden“ einschalten – oder ausgeschaltet lassen und bei einzelnen Gesprächen auf **Abschrift erstellen** klicken.
 
 ## Schritt 11: Umzug aus Close
 
@@ -203,7 +203,7 @@ Erster Schritt immer: **Einstellungen → Diagnose & Fehler → Fehlerbericht ko
 | In der Aufnahme sind „Wir“ und „Kunde“ vertauscht | Im Gespräch unter dem Player auf **Spuren tauschen** klicken |
 | „Die Aufnahme konnte nicht gespeichert werden“ | Kein Grund zur Sorge: Bei Twilio wird eine Aufnahme erst gelöscht, wenn sie sicher im CRM liegt. Das CRM holt sie automatisch bis zu dreimal erneut, sonst im Gespräch auf **Erneut holen** klicken. Den Grund zeigt das Fehlerprotokoll (Diagnose & Fehler) |
 | Aufnahme bleibt lange bei „wird gespeichert“ | Laufen die Hintergrundaufgaben? (Diagnose & Fehler) – sie holen hängengebliebene Aufnahmen nach 10 Minuten neu |
-| E-Mail: „Port 587 ist gesperrt“ | Beim Postausgang Port 465 (SSL/TLS) eintragen |
+| E-Mail: „Port 587/25 ist auf dem Server gesperrt“ | Beim Postausgang Port 465 (SSL/TLS) eintragen |
 | E-Mail: Anmeldung fehlgeschlagen | Bei Google/Microsoft ein App-Passwort verwenden; bei IONOS das Passwort des Postfachs, nicht das des Kundenkontos |
 | SMS kommen nicht an | Messaging → Settings → Geo permissions in Twilio; die Absendernummer muss eine Handynummer sein |
 | Calendly-Termine kommen nicht an | Bezahlter Calendly-Tarif nötig, Token neu verbinden |

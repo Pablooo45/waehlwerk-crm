@@ -48,7 +48,7 @@ Die Einrichtung Schritt für Schritt steht in **[EINRICHTUNG.md](EINRICHTUNG.md)
 
 **Workflows** (wie Workflows/Sequenzen in Close)
 - Auslöser (neuer Lead, Status, Anruf-Ergebnis, Termin, Aktivität …), Schritte mit Wartezeiten: E-Mail, SMS, Anruf-Aufgabe, Aufgabe, Lead ändern, reihum zuweisen, Opportunity, Benachrichtigung, Bedingung
-- Versandfenster (z. B. Mo–Fr 8–18 Uhr), Ziel (z. B. Termin gebucht) und „Stoppen bei Antwort“
+- Versandfenster (z. B. Mo–Fr 8–18 Uhr), Ziel (z. B. Termin gebucht) und Stopp, sobald der Lead per E-Mail oder SMS antwortet
 
 **Termine**
 - Calendly: gebuchte und abgesagte Termine kommen automatisch ins CRM, inklusive Zuordnung zum Opener
@@ -106,8 +106,10 @@ npm run test:perf        # Leistung: 20.000 Leads anlegen und die wichtigsten Se
 | `src/lib/phone/` | Telefon: `twilioPhone.ts` (echt) und `demoPhone.ts` (Demo) |
 | `supabase/migrations/` | Datenbank-Schema, Rechte (Row Level Security), Berichte, Workflows |
 | `supabase/functions/` | Server-Funktionen (siehe unten) |
-| `supabase/functions/_shared/` | Gemeinsame Bausteine: Rufverteilung, WAV-Auswertung, E-Mail (SMTP/IMAP/MIME), KI |
-| `.github/workflows/` | Automatisches Veröffentlichen von Website und Server |
+| `supabase/functions/_shared/` | Gemeinsame Bausteine: Rufverteilung, WAV-Auswertung, E-Mail (SMTP/IMAP/MIME, Öffnungen/Klicks), KI |
+| `tests/e2e/`, `tests/real/` | Klick-Tests gegen die Demo und gegen die lokale Supabase-Umgebung, Leistungsmessung |
+| `scripts/` | Lokale Supabase-Umgebung, Test- und Build-Skripte, Abgleich der Abfragen mit dem Schema |
+| `.github/workflows/` | Tests bei jeder Änderung, automatisches Veröffentlichen von Website und Server |
 
 | Server-Funktion | Aufgabe |
 | --- | --- |

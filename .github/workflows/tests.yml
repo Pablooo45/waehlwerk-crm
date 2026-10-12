@@ -13,7 +13,7 @@ permissions:
 
 jobs:
   datenbank:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     services:
       postgres:
         image: postgres:16
@@ -46,7 +46,7 @@ jobs:
         run: npm run test:db
 
   funktionen:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v6
 
@@ -60,7 +60,7 @@ jobs:
   echter-betrieb:
     # Website gegen eine lokale Supabase-Umgebung (PostgREST + Supabase Auth + Server-Funktionen):
     # Anmelden, Leads, Einstellungen, Team, Rechte, Sammeländerungen über 1000 Leads, Smart-View-Filter.
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     services:
       postgres:
         image: postgres:16
