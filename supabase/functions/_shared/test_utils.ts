@@ -30,6 +30,8 @@ export const DEFAULT_ORG: OrgSettings = {
   gcal_calendars: [],
   gcal_last_sync: null,
   gcal_last_error: null,
+  email_track_opens: false,
+  email_track_clicks: false,
 };
 
 export const ALL_PERMS = [

@@ -38,3 +38,6 @@ verify_jwt = false
 
 [functions.jobs]
 verify_jwt = false
+
+[functions.email-track]
+verify_jwt = false

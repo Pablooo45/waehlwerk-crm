@@ -64,7 +64,7 @@ Bisher ist vor allem die Demo-Fassung durchgeklickt. Der echte Betrieb (Supabase
 
 ## Stand
 
-- 2026-10-10: A und B erledigt. Als Nächstes C1 (E-Mail-Öffnungen und Klicks).
+- 2026-10-12: C1 in Arbeit – Server-Teil fertig (Zählfunktion `email-track`, Datenbank, Tests); als Nächstes die Oberfläche (Verlauf, Einstellungen, Demo).
 
 ## Protokoll
 

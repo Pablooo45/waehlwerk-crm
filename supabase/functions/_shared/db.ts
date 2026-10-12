@@ -32,6 +32,8 @@ export interface OrgSettings {
   gcal_calendars: { id: string; label?: string }[];
   gcal_last_sync: string | null;
   gcal_last_error: string | null;
+  email_track_opens: boolean;
+  email_track_clicks: boolean;
 }
 
 export interface Profile {

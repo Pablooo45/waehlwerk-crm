@@ -2,10 +2,11 @@
 // Gesendete Mails landen auch im „Gesendet“-Ordner, damit das Postfach vollständig bleibt.
 
 import type { SupabaseClient } from 'npm:@supabase/supabase-js@2.117.2';
-import { check, type Repo } from './db.ts';
+import { check, functionUrl, type Repo } from './db.ts';
 import { findSentFolder, ImapClient } from './imap.ts';
 import { buildMime, htmlToText, type MailAddress, parseAddressList, parseMime, stripQuoted, textToHtml } from './mime.ts';
 import { smtpSend } from './smtp.ts';
+import { addTracking, linkify, type TrackOptions } from './tracking.ts';
 
 export interface MailAccount {
   id: string;
@@ -51,6 +52,16 @@ export interface MailEnv {
   db: SupabaseClient;
   repo: Repo;
   caCerts?: string[]; // nur für Tests
+  trackBase?: string; // nur für Tests (sonst die Adresse der Funktion „email-track“)
+}
+
+// Öffnungen/Klicks zählen? (Einstellung fürs ganze Team, standardmäßig aus)
+async function trackingFor(env: MailEnv, emailId: string): Promise<TrackOptions | null> {
+  const org = await env.repo.org();
+  if (!org.email_track_opens && !org.email_track_clicks) return null;
+  const key = await env.repo.secret('TRACKING_KEY');
+  if (!key) return null;
+  return { emailId, key, base: env.trackBase ?? functionUrl('email-track'), opens: !!org.email_track_opens, clicks: !!org.email_track_clicks };
 }
 
 export const pwKey = (accountId: string) => `email_pw:${accountId}`;
@@ -120,17 +131,13 @@ export async function sendEmailRow(env: MailEnv, emailId: string): Promise<{ ok:
     const text = email.is_html ? htmlToText(html!) : email.body + signatureBlock(account, false);
     const messageId = `${email.id}@${domainOf(account.email)}`;
     const from: MailAddress = { email: account.email, name: account.display_name || null };
-    const message = buildMime({
-      from,
-      to,
-      cc,
-      subject: email.subject,
-      html,
-      text,
-      attachments,
-      messageId,
-      inReplyTo: email.in_reply_to,
-    });
+    const mime = (h: string | null) =>
+      buildMime({ from, to, cc, subject: email.subject, html: h, text, attachments, messageId, inReplyTo: email.in_reply_to });
+    // Zählpixel/Links nur in der verschickten Fassung – die Kopie im „Gesendet“-Ordner bleibt ohne,
+    // sonst zählte das eigene Öffnen mit
+    const track = await trackingFor(env, email.id);
+    const trackedHtml = track ? await addTracking(html ?? linkify(textToHtml(email.body)) + signatureBlock(account, true), track) : html;
+    const message = mime(trackedHtml);
     await smtpSend(
       { host: account.smtp_host, port: account.smtp_port, username: account.username, password, caCerts: env.caCerts, helo: domainOf(account.email) },
       account.email,
@@ -147,7 +154,7 @@ export async function sendEmailRow(env: MailEnv, emailId: string): Promise<{ ok:
 
     // Kopie im „Gesendet“-Ordner (nicht kritisch)
     try {
-      await appendSent(env, account, password, message);
+      await appendSent(env, account, password, trackedHtml === html ? message : mime(html));
     } catch (e) {
       await repo.log('email', 'warn', `Kopie im Gesendet-Ordner fehlgeschlagen: ${e instanceof Error ? e.message : e}`, { account: account.id });
     }

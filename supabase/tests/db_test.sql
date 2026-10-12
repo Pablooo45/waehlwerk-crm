@@ -511,4 +511,29 @@ set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000d';
 select pg_temp.fails($$select public.swap_recording_channels('30000000-0000-0000-0000-000000000080')$$, 'nicht gefunden', 'fremde Aufnahme nicht tauschbar');
 reset role;
 
+-- E-Mail-Öffnungen und Link-Klicks
+reset role;
+select pg_temp.check((select length(value) = 64 from private.kv where key = 'TRACKING_KEY'), 'Schlüssel für Zähl-Links angelegt');
+insert into public.emails (id, lead_id, direction, status, subject, to_address, sent_at) values
+  ('40000000-0000-0000-0000-000000000001', '10000000-0000-0000-0000-000000000077', 'outbound', 'sent', 'Angebot', 'info@x.de', now() - interval '1 minute'),
+  ('40000000-0000-0000-0000-000000000002', '10000000-0000-0000-0000-000000000077', 'outbound', 'sent', 'Gerade gesendet', 'info@x.de', now()),
+  ('40000000-0000-0000-0000-000000000003', '10000000-0000-0000-0000-000000000077', 'inbound', 'received', 'Antwort', null, now() - interval '1 hour');
+select pg_temp.check((public.email_track_event('40000000-0000-0000-0000-000000000001', 'click', 'https://apokunden.de/') ->> 'first')::boolean, 'erster Klick erkannt');
+select pg_temp.check((select opens = 1 and clicks = 1 and last_opened_at is not null and last_clicked_at is not null
+                        from public.emails where id = '40000000-0000-0000-0000-000000000001'), 'Klick zählt auch als geöffnet');
+select pg_temp.check(not (public.email_track_event('40000000-0000-0000-0000-000000000001', 'open') ->> 'first')::boolean, 'Öffnen nach Klick ist nicht das erste');
+select pg_temp.check((select opens = 2 and jsonb_array_length(track_events) = 2 and track_events -> 0 ->> 'url' = 'https://apokunden.de/'
+                        from public.emails where id = '40000000-0000-0000-0000-000000000001'), 'Ereignisse mit Link vermerkt');
+select pg_temp.check(public.email_track_event('40000000-0000-0000-0000-000000000002', 'open') is null, 'Abruf direkt nach dem Senden zählt nicht (Virenscanner)');
+select pg_temp.check(public.email_track_event('40000000-0000-0000-0000-000000000003', 'open') is null, 'eingehende Mail zählt nicht');
+select pg_temp.check(public.email_track_event('40000000-0000-0000-0000-000000000001', 'spam') is null, 'unbekannte Art zählt nicht');
+select public.email_track_event('40000000-0000-0000-0000-000000000001', 'open') from generate_series(1, 60);
+select pg_temp.check((select jsonb_array_length(track_events) = 50 and opens = 62 from public.emails where id = '40000000-0000-0000-0000-000000000001'),
+                     'höchstens 50 Ereignisse, Zähler läuft weiter');
+select pg_temp.check((select (data ->> 'opens')::int = 62 from public.lead_timeline where id = '40000000-0000-0000-0000-000000000001'), 'Verlauf zeigt die Öffnungen');
+set role authenticated;
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000e';
+select pg_temp.fails($$select public.email_track_event('40000000-0000-0000-0000-000000000001', 'open')$$, 'permission denied', 'Browser darf nicht selbst zählen');
+reset role;
+
 select 'ALLE DATENBANK-TESTS BESTANDEN' as ergebnis;
