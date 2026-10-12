@@ -308,6 +308,23 @@ insert into public.leads (id, name, address_zip) values (:l3, 'Loewen Apotheke',
 insert into public.contacts (lead_id, name, phones) values (:l3, 'Petra', '[{"number":"+49 6181 123456"}]');
 insert into public.notes (lead_id, body) values (:l3, 'Notiz am doppelten Lead');
 select pg_temp.check((select reasons like '%Telefonnummer%' from public.find_duplicate_leads(:l1)), 'Dublette über Nummer gefunden');
+select pg_temp.check((select count(*) from public.find_duplicate_leads(:l1))
+                     = (select count(*) from public.find_duplicate_leads(null, 2000) where :l1 in (lead_a, lead_b)),
+                     'Dubletten zu einem Lead wie in der Gesamtliste');
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000e';
+select pg_temp.check((select count(*) = 0 from public.find_duplicate_leads(:l1)), 'Dubletten fremder Leads unsichtbar');
+select pg_temp.check((select count(*) = 0 from public.find_duplicate_leads(null) where :l1 in (lead_a, lead_b)), 'Dubletten-Liste nur mit sichtbaren Leads');
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000f';
+insert into public.leads (id, name, address_zip) values
+  ('10000000-0000-0000-0000-000000000091', 'Sonnen-Apotheke', '12345'),
+  ('10000000-0000-0000-0000-000000000092', 'Sonnen Apotheke', '12345'),
+  ('10000000-0000-0000-0000-000000000093', 'Mond-Apotheke', '54321');
+insert into public.contacts (lead_id, name, emails) values
+  ('10000000-0000-0000-0000-000000000091', 'Chef', '[{"email":"Chef@Sonnen-Test.de"}]'),
+  ('10000000-0000-0000-0000-000000000093', 'Chef', '[{"email":"chef@sonnen-test.de"}]');
+select pg_temp.check((select string_agg(reasons, ' / ' order by lead_b) from public.find_duplicate_leads('10000000-0000-0000-0000-000000000091'))
+                     = 'gleicher Name und PLZ / gleiche E-Mail-Adresse', 'Dubletten über Name+PLZ und E-Mail (Groß/klein egal)');
+delete from public.leads where id in ('10000000-0000-0000-0000-000000000091', '10000000-0000-0000-0000-000000000092', '10000000-0000-0000-0000-000000000093');
 select public.merge_leads(:l1, :l3);
 select pg_temp.check((select count(*) = 0 from public.leads where id = :l3), 'zusammengeführter Lead entfernt');
 select pg_temp.check((select count(*) = 2 from public.contacts where lead_id = :l1), 'Kontakte übernommen');
@@ -535,5 +552,13 @@ set role authenticated;
 set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000e';
 select pg_temp.fails($$select public.email_track_event('40000000-0000-0000-0000-000000000001', 'open')$$, 'permission denied', 'Browser darf nicht selbst zählen');
 reset role;
+
+-- Rechteprüfung an Kindtabellen: schnelle, einbaubare Prüfung statt Funktionsaufruf je Zeile
+reset role;
+select pg_temp.check(not exists (select 1 from pg_policies where schemaname = 'public'
+                                   and (qual ~ '(^|[^a-z_])can_see_lead\(' or with_check ~ '(^|[^a-z_])can_see_lead\(')),
+                     'Regeln nutzen die schnelle Sichtbarkeitsprüfung');
+select pg_temp.check((select count(*) >= 20 from pg_policies where schemaname = 'public'
+                        and (qual ~ 'vis_l\.id' or with_check ~ 'vis_l\.id')), 'Sichtbarkeit an allen Kindtabellen');
 
 select 'ALLE DATENBANK-TESTS BESTANDEN' as ergebnis;

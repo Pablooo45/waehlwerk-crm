@@ -273,14 +273,33 @@ export class SupabaseStore implements Store {
     return lead;
   }
 
+  // Kontakte zu einer Seite Leads in eigener Abfrage holen. Eingebettet (select '*, contacts(*)') müsste die
+  // Datenbank sie für alle passenden Leads zusammenstellen, bevor sortiert und abgeschnitten wird – bei
+  // 20.000 Leads mehrere Sekunden statt Millisekunden.
+  private async attachContacts(leads: Lead[]): Promise<Lead[]> {
+    const byLead = new Map<ID, Contact[]>();
+    for (const part of chunks(leads.map((l) => l.id), 100)) {
+      for (let from = 0; ; from += 1000) {
+        const rows = must(await this.sb.from('contacts').select('*').in('lead_id', part).order('id').range(from, from + 999), 'Kontakte') as Contact[];
+        for (const c of rows) {
+          const list = byLead.get(c.lead_id) ?? [];
+          list.push(c);
+          byLead.set(c.lead_id, list);
+        }
+        if (rows.length < 1000) break;
+      }
+    }
+    return leads.map((l) => this.withSortedContacts({ ...l, contacts: byLead.get(l.id) ?? [] }));
+  }
+
   // ---------- Leads ----------
   async listLeads(filter: FilterSet, sort: SortSpec, page: Page) {
-    let q: Q = this.sb.from('leads').select('*, contacts(*)', { count: 'exact' });
+    let q: Q = this.sb.from('leads').select('*', { count: 'exact' });
     q = this.applyFilter(q, filter);
     q = q.order(sort.field, { ascending: sort.dir === 'asc', nullsFirst: false }).order('id');
     q = q.range(page.offset, page.offset + page.limit - 1);
     const res = await q;
-    const rows = (must(res, 'Leads') as Lead[]).map((l) => this.withSortedContacts(l));
+    const rows = await this.attachContacts(must(res, 'Leads') as Lead[]);
     return { rows, total: res.count ?? rows.length };
   }
 
@@ -309,10 +328,10 @@ export class SupabaseStore implements Store {
   async searchLeads(q: string, limit = 8) {
     const terms = searchTerms(q);
     if (!terms.length) return [];
-    let query: Q = this.sb.from('leads').select('*, contacts(*)');
+    let query: Q = this.sb.from('leads').select('*');
     for (const t of terms) query = query.ilike('search_text', `%${t}%`);
     query = query.order('last_activity_at', { ascending: false, nullsFirst: false }).limit(limit);
-    return (must(await query, 'Suche') as Lead[]).map((l) => this.withSortedContacts(l));
+    return this.attachContacts(must(await query, 'Suche') as Lead[]);
   }
 
   async getLead(id: ID) {

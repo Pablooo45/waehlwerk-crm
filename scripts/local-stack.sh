@@ -2,6 +2,7 @@
 # Lokale Supabase-Umgebung ohne Docker – zum Testen des echten Betriebs (nicht des Demo-Modus).
 #
 #   scripts/local-stack.sh start    Datenbank frisch aufsetzen, Dienste starten, Website bauen
+#   scripts/local-stack.sh large    zusätzlich 20.000 Leads für Leistungsmessungen (tests/real/perf.py)
 #   scripts/local-stack.sh stop     Dienste beenden
 #   scripts/local-stack.sh status   Läuft alles?
 #
@@ -196,6 +197,11 @@ case "${1:-start}" in
     seed
     echo "Lokale Umgebung läuft: Website $APP, Gateway $GW (Logs: $LOGS)"
     ;;
+  large)
+    # zusätzlich 20.000 Leads mit Anrufen, Notizen und Aufgaben (für Leistungsmessungen; Umgebung muss laufen)
+    psql -q -d "$DB" -v ON_ERROR_STOP=1 -f scripts/local-stack/seed-large.sql >/dev/null
+    echo "Große Testmenge angelegt: $(psql -At -d "$DB" -c 'select count(*) from public.leads') Leads, $(psql -At -d "$DB" -c 'select count(*) from public.calls') Anrufe."
+    ;;
   stop)
     stop
     echo "Gestoppt."
@@ -210,7 +216,7 @@ case "${1:-start}" in
     echo "SERVICE=$SERVICE"
     ;;
   *)
-    echo "Nutzung: $0 start|stop|status|keys" >&2
+    echo "Nutzung: $0 start|large|stop|status|keys" >&2
     exit 2
     ;;
 esac

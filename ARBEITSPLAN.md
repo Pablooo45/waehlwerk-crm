@@ -55,7 +55,7 @@ Bisher ist vor allem die Demo-Fassung durchgeklickt. Der echte Betrieb (Supabase
 - [ ] C4 Predictive Dialer (mehrere Leitungen gleichzeitig) – **nur nach Rückfrage bei Nico**: In Deutschland heikel, weil dabei „stille Anrufe“ entstehen (Kunde hebt ab, niemand ist dran).
 
 ### D – Leistung und Stabilität
-- [ ] D1 20.000 Leads: Leadliste, Suche, Smart-View-Zählungen und Lead-Seite bleiben schnell (Indizes, Seitenweise laden, Zählungen begrenzen) – im lokalen Stack mit Testdaten messen.
+- [x] D1 20.000 Leads: gemessen mit `npm run test:perf` (22.500 Leads, 45.000 Anrufe; Admin und Mitarbeiterin mit eingeschränkter Sicht). Alle Seiten unter 1,3 s. Behoben: Rechteprüfung an Kindtabellen lief je Zeile über eine Funktion (Leadliste für Mitarbeiter 5 s → 0,5 s, neue Migration), Dubletten-Hinweis auf der Lead-Seite durchsuchte den ganzen Bestand (1,3 s → unter 10 ms), Leadliste lud beim Öffnen doppelt, Kontakte der Leadliste werden nur noch für die angezeigte Seite geholt.
 - [ ] D2 Fehlerfälle verständlich: Internet weg, Anmeldung abgelaufen, Mikrofon oder Twilio nicht verfügbar, Server-Funktion antwortet nicht.
 
 ### E – Abschluss
@@ -64,7 +64,7 @@ Bisher ist vor allem die Demo-Fassung durchgeklickt. Der echte Betrieb (Supabase
 
 ## Stand
 
-- 2026-10-12: C1–C3 erledigt (C4 wartet auf Nicos Entscheidung). Als Nächstes D1 (Leistung mit 20.000 Leads).
+- 2026-10-12: C1–C3 und D1 erledigt (C4 wartet auf Nicos Entscheidung). Als Nächstes D2 (Fehlerfälle verständlich).
 
 ## Protokoll
 
@@ -74,3 +74,4 @@ Bisher ist vor allem die Demo-Fassung durchgeklickt. Der echte Betrieb (Supabase
 - 2026-10-12 – E-Mail-Öffnungen und Link-Klicks (C1). Entscheidung: standardmäßig aus, weil Zählbild und umgeleitete Links nach TDDDG meist eine Einwilligung brauchen; Klick zählt auch als Öffnung; Abrufe in den ersten 10 Sekunden nach dem Versand zählen nicht (Virenscanner); die Kopie im Gesendet-Ordner bleibt ohne Zählbild, damit das eigene Öffnen nicht zählt.
 - 2026-10-12 – Smart Views aus Close mit Filtern (C2). Die genaue Form der Close-Abfragen ließ sich nicht an euren echten Smart Views prüfen (die Close-Schnittstelle hier zeigt nur Namen); der Übersetzer folgt dem Aufbau der Close-Filter-Schnittstelle und ist vorsichtig: Was er nicht sicher versteht, übernimmt er nicht, sondern nennt es in der Beschreibung der Smart View.
 - 2026-10-12 – Notizen mit Formatierung (C3). Entscheidung: Text bleibt das Original (für Suche, Erwähnungen, Export, Benachrichtigungen), HTML nur zusätzlich und nur bei echter Formatierung; Einfügen übernimmt nur reinen Text (keine fremden Formatierungen/Skripte). Nebenbei behoben: Tastenkürzel wie „n“ tippten ihren Buchstaben in das Feld, das sie gerade öffnen.
+- 2026-10-12 – Leistung mit 22.500 Leads (D1). Wichtigste Erkenntnis: Zeilenrechte mit Funktionsaufruf je Zeile und JSON-Vergleiche unter Zeilenrechten (dürfen keine Indizes nutzen) waren die Bremsen. Lösung ohne Änderung der Rechte-Logik: Prüfung als EXISTS direkt in den Regeln (gleiche Sichtbarkeit wie can_see_lead, von den Datenbank-Tests abgesichert), Dubletten-Suche mit eigener Sichtbarkeitsprüfung.

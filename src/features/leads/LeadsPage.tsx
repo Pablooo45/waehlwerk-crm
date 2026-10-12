@@ -17,7 +17,7 @@ import {
   X,
   Zap,
 } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useApp } from '../../app/context.tsx';
 import { useAsync } from '../../app/hooks.ts';
 import { leadHref, navigate } from '../../app/router.ts';
@@ -62,7 +62,13 @@ export default function LeadsPage({ viewId }: { viewId: string | null }) {
   const colMenu = useMenu();
   const bulkMenu = useMenu();
 
+  // Andere Smart View gewählt oder ihre Einstellungen geändert: Filter usw. übernehmen. Nicht beim ersten Anzeigen
+  // (die Startwerte stimmen schon – sonst lädt die Liste doppelt) und nicht, wenn nur die Stammdaten neu geladen wurden.
+  const viewKey = view ? JSON.stringify([view.id, view.filters, view.sort, view.columns]) : `none:${viewId ?? ''}`;
+  const lastViewKey = useRef(viewKey);
   useEffect(() => {
+    if (lastViewKey.current === viewKey) return;
+    lastViewKey.current = viewKey;
     setFilter(view?.filters ?? emptyFilter());
     setSort(view?.sort?.field ? view.sort : DEFAULT_SORT);
     setColumns(viewColumns(view));
@@ -71,7 +77,7 @@ export default function LeadsPage({ viewId }: { viewId: string | null }) {
     setAllMatching(false);
     setLimit(PAGE);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [viewId, view]);
+  }, [viewKey]);
 
   const effective = useMemo<FilterSet>(() => ({ ...filter, q: dq }), [filter, dq]);
   const data = useAsync(() => store.listLeads(effective, sort, { offset: 0, limit }), [effective, sort, limit, store], ['leads', 'ref']);
