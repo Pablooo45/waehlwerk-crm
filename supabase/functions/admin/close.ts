@@ -1,7 +1,7 @@
 // Umzug aus Close über die Close-Schnittstelle – in Etappen, jederzeit fortsetzbar, ohne Doppelungen.
 //
 // Etappen (jede Anfrage verarbeitet ein Stück und liefert einen „cursor“ für das nächste):
-//   config        Status, Pipelines, Ergebnisse, Felder, Formulare, Vorlagen, Smart-View-Namen, Nutzer-Zuordnung
+//   config        Status, Pipelines, Ergebnisse, Felder, Formulare, Vorlagen, Smart Views (mit Filtern), Nutzer-Zuordnung
 //   leads         Leads mit Kontakten, Adressen, Feldern, Zuständigen
 //   opportunities Opportunities mit Phase, Wert, Zuständigen
 //   activities    Anrufe, Notizen, E-Mails, SMS, Termine, Formulare, Statuswechsel (rückwärts in 14-Tage-Fenstern)
@@ -15,6 +15,7 @@ import { check, type SupabaseRepo } from '../_shared/db.ts';
 import { HttpError } from '../_shared/http.ts';
 import { htmlToText, parseAddressList } from '../_shared/mime.ts';
 import { normalizePhone } from '../_shared/phone.ts';
+import { type CloseViewMaps, convertCloseQuery, convertCloseSort, viewDescription } from './close_views.ts';
 
 const BASE = 'https://api.close.com/api/v1';
 
@@ -158,6 +159,17 @@ function fieldType(t: string, multiple: boolean): string {
     default:
       return 'text';
   }
+}
+
+interface CloseSavedSearch {
+  id: string;
+  name: string;
+  type?: string; // lead | contact
+  s_query?: unknown; // Abfrage der Advanced-Filtering-Schnittstelle
+  query?: unknown; // ältere Smart Views: Abfrage als Text
+  sort?: unknown;
+  is_shared?: boolean;
+  user_id?: string;
 }
 
 interface CloseField {
@@ -418,6 +430,7 @@ async function importConfig(repo: SupabaseRepo, close: CloseClient): Promise<Sta
 
   // Eigene Felder
   const ourFields = check(await db.from('custom_fields').select('key, label, entity'), 'Felder') as { key: string; label: string; entity: string }[];
+  const leadFieldNames = new Map<string, string>(); // für lesbare Hinweise bei Smart Views
   const taken = new Set(ourFields.map((f) => f.key));
   for (const [entity, kind] of [['lead', 'cf_lead'], ['contact', 'cf_contact'], ['opportunity', 'cf_opportunity']] as const) {
     let list: CloseField[] = [];
@@ -428,6 +441,7 @@ async function importConfig(repo: SupabaseRepo, close: CloseClient): Promise<Sta
       continue;
     }
     const pairs: [string, string][] = [];
+    if (entity === 'lead') list.forEach((f) => leadFieldNames.set(f.id, f.name));
     for (const f of list) {
       // Zuständige Person / Opener sind bei uns feste Felder
       if (entity === 'lead' && f.type === 'user' && /owner|zust[äa]ndig|verantwortlich|inhaber.*(vertrieb|crm)|closer/i.test(f.name)) {
@@ -520,25 +534,59 @@ async function importConfig(repo: SupabaseRepo, close: CloseClient): Promise<Sta
     warnings.push(`Vorlagen nicht gelesen: ${e instanceof Error ? e.message : e}`);
   }
 
-  // Smart Views: Namen übernehmen; Filter lassen sich nicht 1:1 übersetzen
+  // Smart Views mit ihren Filtern – soweit übersetzbar; was fehlt, steht in der Beschreibung
   try {
-    const views = await close.all<{ id: string; name: string }>('/saved_search/');
-    const ourViews = check(await db.from('smart_views').select('name'), 'Smart Views') as { name: string }[];
-    const missing = views.filter((v) => !ourViews.some((o) => norm(o.name) === norm(v.name)));
-    if (missing.length) {
+    const views = await close.all<CloseSavedSearch>('/saved_search/');
+    const typed = check(await db.from('custom_fields').select('key, type').eq('entity', 'lead'), 'Felder') as { key: string; type: string }[];
+    const maps: CloseViewMaps = {
+      status: await mapOf(repo, 'lead_status'),
+      user: await mapOf(repo, 'user'),
+      field: await mapOf(repo, 'cf_lead'),
+      fieldType: new Map(typed.map((f) => [f.key, f.type])),
+      fieldName: leadFieldNames,
+    };
+    const ourViews = check(await db.from('smart_views').select('id, name, description, filters'), 'Smart Views') as {
+      id: string;
+      name: string;
+      description: string;
+      filters: { conditions?: unknown[] } | null;
+    }[];
+    let added = 0;
+    let refreshed = 0;
+    let partial = 0;
+    for (const [i, v] of views.entries()) {
+      if (v.type && v.type !== 'lead') {
+        warnings.push(`Smart View „${v.name}“ filtert Kontakte statt Leads – nicht übernommen.`);
+        continue;
+      }
+      const conv = v.s_query && typeof v.s_query === 'object'
+        ? convertCloseQuery(v.s_query, maps)
+        : { filters: { match: 'all' as const, conditions: [] }, missing: [typeof v.query === 'string' && v.query.trim() ? `Close-Abfrage „${v.query.trim().slice(0, 200)}“` : 'keine Filter gefunden'] };
+      if (conv.missing.length) partial++;
+      const row = { filters: conv.filters, description: viewDescription(conv.missing), sort: convertCloseSort(v.sort) ?? { field: 'name', dir: 'asc' } };
+      const existing = ourViews.find((o) => norm(o.name) === norm(v.name));
+      if (existing) {
+        // frühere Übernahmen ohne Filter auffrischen; selbst angepasste Smart Views bleiben unangetastet
+        if (!existing.filters?.conditions?.length && existing.description.startsWith('Aus Close übernommen')) {
+          check(await db.from('smart_views').update(row).eq('id', existing.id), 'Smart View');
+          refreshed++;
+        }
+        continue;
+      }
       check(
-        await db.from('smart_views').insert(missing.map((v, i) => ({
+        await db.from('smart_views').insert({
           name: v.name,
-          description: 'Aus Close übernommen – bitte die Filter nachbauen (Close gibt sie nicht in lesbarer Form heraus).',
-          filters: { match: 'all', conditions: [] },
-          sort: { field: 'name', dir: 'asc' },
-          shared: true,
+          ...row,
+          shared: v.is_shared !== false,
           position: 500 + i,
-        }))),
-        'Smart Views',
+          created_by: (v.user_id && maps.user.get(v.user_id)) || null,
+        }),
+        'Smart View',
       );
+      added++;
     }
-    imported.smart_views = missing.length;
+    imported.smart_views = added + refreshed;
+    if (partial) warnings.push(`${partial} Smart Views ließen sich nicht vollständig übersetzen – in ihrer Beschreibung steht, was fehlt.`);
   } catch (e) {
     warnings.push(`Smart Views nicht gelesen: ${e instanceof Error ? e.message : e}`);
   }

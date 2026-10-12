@@ -63,7 +63,7 @@ Die Einrichtung Schritt für Schritt steht in **[EINRICHTUNG.md](EINRICHTUNG.md)
 - Beste Anrufzeiten (Wochentag × Stunde), Ergebnisse, Statuswechsel, Pipeline-Trichter, Auswertung eigener Aktivitäten
 
 **Umzug aus Close**
-- Übernahme über die Close-Schnittstelle: Einstellungen, Leads, Kontakte, Opportunities, Verlauf, offene Aufgaben und Aufnahmen – in Etappen, wiederholbar ohne Doppelungen
+- Übernahme über die Close-Schnittstelle: Einstellungen, Smart Views mit ihren Filtern, Leads, Kontakte, Opportunities, Verlauf, offene Aufgaben und Aufnahmen – in Etappen, wiederholbar ohne Doppelungen
 
 **Betrieb**
 - Diagnose-Seite mit Systemprüfung, Netz- und Audiotest und dem Knopf „Fehlerbericht kopieren“
@@ -73,7 +73,7 @@ Die Einrichtung Schritt für Schritt steht in **[EINRICHTUNG.md](EINRICHTUNG.md)
 ## Was (noch) fehlt im Vergleich zu Close
 
 - Predictive Dialer (mehrere Leitungen gleichzeitig)
-- Smart-View-Filter aus Close werden beim Umzug nur als Name übernommen und müssen nachgebaut werden
+- Sehr verschachtelte Smart-View-Filter aus Close (mehrere Gruppen ineinander, feste Datumsangaben) übersetzt der Umzug nur teilweise – die Smart View sagt dann in ihrer Beschreibung, was fehlt
 
 ## Kosten
 

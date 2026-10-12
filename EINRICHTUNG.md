@@ -135,7 +135,7 @@ Jede Person braucht:
 4. Auswählen, was übernommen wird, und starten. Das Fenster dabei offen lassen; bei vielen Daten dauert der Verlauf eine Weile. Gesprächsaufnahmen sind abgewählt, weil sie am längsten dauern – sie lassen sich später in einem zweiten Lauf holen.
 5. Den Umzug könnt ihr jederzeit wiederholen: Schon übernommene Leads und Aktivitäten werden erkannt und nicht doppelt angelegt. So könnt ihr Close bis zum Umstieg parallel weiterbenutzen.
 
-Hinweise: Beim Umzug starten keine Workflows und niemand bekommt Benachrichtigungen. Die Filter von Smart Views gibt Close nicht in lesbarer Form heraus – die Namen werden übernommen, die Filter bitte im CRM nachbauen (die wichtigsten sind schon eingerichtet). Alternativ lassen sich Leads auch als CSV aus Close exportieren und unter **Einstellungen → Import & Export** einlesen.
+Hinweise: Beim Umzug starten keine Workflows und niemand bekommt Benachrichtigungen. Smart Views kommen mit ihren Filtern mit (Status, eigene Felder, Zuständige, PLZ, Anrufe, Zeiträume). Was sich nicht übersetzen lässt, steht in der Beschreibung der Smart View – diese Filter bitte im CRM kurz prüfen. Alternativ lassen sich Leads auch als CSV aus Close exportieren und unter **Einstellungen → Import & Export** einlesen.
 
 ---
 

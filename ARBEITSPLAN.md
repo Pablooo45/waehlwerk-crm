@@ -50,7 +50,7 @@ Bisher ist vor allem die Demo-Fassung durchgeklickt. Der echte Betrieb (Supabase
 
 ### C – Close-Funktionen, die noch fehlen
 - [x] C1 E-Mail-Öffnungen und Link-Klicks erfassen wie in Close: Server-Funktion `email-track` (signierte Links, keine offene Weiterleitung), im Verlauf „2× geöffnet / 1× geklickt“ mit Liste, auf Wunsch Hinweis in der Inbox, unter Einstellungen → E-Mail-Postfach fürs Team schaltbar (standardmäßig aus, TDDDG). Getestet in Deno, Datenbank und im echten Betrieb.
-- [ ] C2 Smart Views beim Close-Umzug mit ihren Filtern übernehmen (Close-Abfrage → eigene Filter, soweit übersetzbar; der Rest als Hinweis an der Smart View).
+- [x] C2 Smart Views beim Close-Umzug mit ihren Filtern übernehmen: `admin/close_views.ts` übersetzt die Close-Abfrage (Status, eigene Felder, Zuständig/Opener, PLZ/Ort/Bundesland, Anzahl und Datum der Anrufe, letzte Aktivität, Anlagedatum, „vorbei oder leer“, „eine der Bedingungen“, Sortierung); Unübersetzbares steht als Hinweis in der Beschreibung. Frühere Übernahmen ohne Filter werden beim nächsten Lauf aufgefrischt.
 - [ ] C3 Notizen mit Formatierung wie in Close (fett, kursiv, Listen, Links) – im Editor und im Verlauf.
 - [ ] C4 Predictive Dialer (mehrere Leitungen gleichzeitig) – **nur nach Rückfrage bei Nico**: In Deutschland heikel, weil dabei „stille Anrufe“ entstehen (Kunde hebt ab, niemand ist dran).
 
@@ -64,7 +64,7 @@ Bisher ist vor allem die Demo-Fassung durchgeklickt. Der echte Betrieb (Supabase
 
 ## Stand
 
-- 2026-10-12: C1 erledigt. Als Nächstes C2 (Smart Views aus Close mit Filtern).
+- 2026-10-12: C1 und C2 erledigt. Als Nächstes C3 (Notizen mit Formatierung).
 
 ## Protokoll
 
@@ -72,3 +72,4 @@ Bisher ist vor allem die Demo-Fassung durchgeklickt. Der echte Betrieb (Supabase
 - 2026-10-10 – Abgleich aller Datenbank-Abfragen mit dem Schema (281 Abfragen, keine Abweichung); fängt Tippfehler in Tabellen, Spalten, Verknüpfungen, Feldern und Funktionen.
 - 2026-10-10 – Echter Betrieb geprüft: lokale Supabase-Umgebung (`scripts/local-stack.sh`), Durchklick-Test mit zwei Rollen und Filter-Vergleich (239 Bedingungen). Gefunden und behoben: Filter „ist leer/ausgefüllt“ für Mehrfachauswahl-Felder zählte eine leere Auswahl als ausgefüllt.
 - 2026-10-12 – E-Mail-Öffnungen und Link-Klicks (C1). Entscheidung: standardmäßig aus, weil Zählbild und umgeleitete Links nach TDDDG meist eine Einwilligung brauchen; Klick zählt auch als Öffnung; Abrufe in den ersten 10 Sekunden nach dem Versand zählen nicht (Virenscanner); die Kopie im Gesendet-Ordner bleibt ohne Zählbild, damit das eigene Öffnen nicht zählt.
+- 2026-10-12 – Smart Views aus Close mit Filtern (C2). Die genaue Form der Close-Abfragen ließ sich nicht an euren echten Smart Views prüfen (die Close-Schnittstelle hier zeigt nur Namen); der Übersetzer folgt dem Aufbau der Close-Filter-Schnittstelle und ist vorsichtig: Was er nicht sicher versteht, übernimmt er nicht, sondern nennt es in der Beschreibung der Smart View.
