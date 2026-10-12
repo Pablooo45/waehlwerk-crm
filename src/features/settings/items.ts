@@ -22,6 +22,7 @@ export const SETTINGS_ITEMS: SettingsItem[] = [
   { id: 'team', label: 'Benutzer', group: 'Team', words: 'team benutzer anlegen einladen mitarbeiter zugang', visible: admin },
   { id: 'roles', label: 'Rollen & Rechte', group: 'Team', words: 'rollen rechte ränge berechtigungen admin super user eingeschränkt', visible: admin },
   { id: 'groups', label: 'Gruppen', group: 'Team', words: 'gruppen teams opener closer', visible: admin },
+  { id: 'commission', label: 'Provisionsmodelle', group: 'Team', words: 'provision provisionsmodell stufen staffel umsatz verdienst gehalt fixgehalt dealwert', visible: custom },
   { id: 'statuses', label: 'Status & Pipelines', group: 'Anpassen', words: 'status lead statuses pipeline pipelines phasen opportunity', visible: custom },
   { id: 'fields', label: 'Eigene Felder', group: 'Anpassen', words: 'felder custom fields lead kontakt opportunity', visible: custom },
   { id: 'forms', label: 'Eigene Aktivitäten', group: 'Anpassen', words: 'aktivitäten custom activities formulare setting wiedervorlage aktionen', visible: custom },

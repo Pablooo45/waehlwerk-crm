@@ -18,6 +18,7 @@ export type Route =
   | { name: 'workflows' }
   | { name: 'workflow'; id: string }
   | { name: 'reports'; tab: string | null }
+  | { name: 'earnings'; month: string | null } // Mein Verdienst, month = YYYY-MM
   | { name: 'live' }
   | { name: 'more' }
   | { name: 'settings'; section: string };
@@ -56,6 +57,8 @@ export function parseHash(hash: string): Route {
       return { name: 'workflows' };
     case 'reports':
       return { name: 'reports', tab: params.get('tab') };
+    case 'earnings':
+      return { name: 'earnings', month: params.get('month') };
     case 'live':
       return { name: 'live' };
     case 'more':
@@ -88,6 +91,8 @@ export function routeHref(r: Route): string {
       return `#/workflows/${encodeURIComponent(r.id)}`;
     case 'reports':
       return r.tab ? `#/reports?tab=${encodeURIComponent(r.tab)}` : '#/reports';
+    case 'earnings':
+      return r.month ? `#/earnings?month=${encodeURIComponent(r.month)}` : '#/earnings';
     case 'settings':
       return `#/settings/${r.section}`;
     default:

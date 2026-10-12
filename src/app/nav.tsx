@@ -1,8 +1,9 @@
 // Hauptnavigation wie in Close – gemeinsam für Seitenleiste, Handy-Menü („Mehr“) und Suche.
-// Reihenfolge: Inbox, Leads, Kontakte, Opportunities, Gespräche, Berichte, Workflows.
+// Reihenfolge: Inbox, Leads, Kontakte, Opportunities, Gespräche, Berichte, Verdienst, Workflows.
 // Termine stehen (wie die Besprechungen in Close) in der Inbox-Spalte, Live-Gespräche als Reiter bei den Gesprächen.
+// „Verdienst“ gibt es in Close nicht: die eigene Provisions-Tabelle jeder Person (nur für sie sichtbar).
 
-import { BarChart3, CalendarDays, Columns3, Contact, Headphones, Inbox, MessagesSquare, Rows3, Workflow } from 'lucide-react';
+import { BarChart3, CalendarDays, Columns3, Contact, Headphones, Inbox, MessagesSquare, Rows3, Wallet, Workflow } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { useApp } from './context.tsx';
 import type { Route } from './router.ts';
@@ -23,6 +24,7 @@ export function useNavItems(inbox: number): NavItem[] {
     { route: { name: 'opportunities', pipelineId: null }, label: 'Opportunities', icon: <Columns3 />, match: ['opportunities'] },
     { route: { name: 'calls' }, label: 'Gespräche', icon: <MessagesSquare />, match: ['calls', 'call', 'live'] },
     { route: { name: 'reports', tab: null }, label: 'Berichte', icon: <BarChart3 />, match: ['reports'] },
+    { route: { name: 'earnings', month: null }, label: 'Verdienst', icon: <Wallet />, match: ['earnings'] },
     { route: { name: 'workflows' }, label: 'Workflows', icon: <Workflow />, match: ['workflows', 'workflow'] },
   ];
 }

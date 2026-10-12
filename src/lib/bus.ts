@@ -13,6 +13,7 @@ export type BusEvent =
   | 'workflows'
   | 'messages'
   | 'insights'
+  | 'earnings'
   | 'ref';
 
 type Handler = (detail?: unknown) => void;

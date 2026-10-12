@@ -561,4 +561,52 @@ select pg_temp.check(not exists (select 1 from pg_policies where schemaname = 'p
 select pg_temp.check((select count(*) >= 20 from pg_policies where schemaname = 'public'
                         and (qual ~ 'vis_l\.id' or with_check ~ 'vis_l\.id')), 'Sichtbarkeit an allen Kindtabellen');
 
+-- Mein Verdienst: jede Person sieht nur ihre eigenen Zahlen, auch Admins nicht die fremden
+reset role;
+insert into public.leads (id, name) values ('10000000-0000-0000-0000-000000000088', 'Stern-Apotheke');
+set role authenticated;
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000b';
+select pg_temp.fails($$insert into public.commission_models (name) values ('Eigenes Modell')$$, 'row-level security', 'Vorlagen nur mit Recht „Einstellungen anpassen“');
+insert into public.pay_plans (valid_from, base_salary, model_name, tiers, deal_value)
+values ('2026-08-01', 3000, 'Stufenprovision', '[{"from":25000,"rate":2},{"from":35000,"rate":3}]', 6500);
+insert into public.won_deals (customer, lead_id, closed_on, deal_value) values
+  ('Stern-Apotheke', '10000000-0000-0000-0000-000000000088', '2026-08-28', 6500),
+  ('Kunde B', null, '2026-08-26', 8000);
+select pg_temp.check((select count(*) = 2 and bool_and(user_id = :bob) from public.won_deals), 'eigene Kunden eingetragen, Person automatisch');
+select pg_temp.check((select count(*) = 1 and bool_and(user_id = :bob) from public.pay_plans), 'eigener Stand gespeichert');
+select pg_temp.fails($$insert into public.won_deals (user_id, customer, closed_on, deal_value) values ('00000000-0000-0000-0000-00000000000a', 'X', '2026-08-01', 1)$$,
+                     'row-level security', 'keine Kunden für andere eintragen');
+select pg_temp.fails($$insert into public.pay_plans (valid_from, base_salary) values ('2026-09-15', 1)$$, 'pay_plans_month', 'Stand gilt immer ab Monatsanfang');
+select pg_temp.fails($$insert into public.pay_plans (valid_from, base_salary) values ('2026-08-01', 1)$$, 'duplicate key', 'ein Stand je Monat');
+select pg_temp.fails($$insert into public.won_deals (customer, closed_on, deal_value) values ('  ', '2026-08-01', 1)$$, 'check constraint', 'Kunde braucht einen Namen');
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000a';
+select pg_temp.check((select count(*) = 0 from public.won_deals) and (select count(*) = 0 from public.pay_plans), 'Admin sieht fremde Verdienste nicht');
+update public.won_deals set deal_value = 1;
+delete from public.pay_plans;
+insert into public.commission_models (name, tiers, deal_value) values ('Stufenprovision', '[{"from":25000,"rate":2}]', 6500);
+select pg_temp.check((select count(*) = 1 from public.commission_models), 'Admin legt Vorlage fürs Team an');
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000e';
+select pg_temp.check((select count(*) = 1 from public.commission_models) and (select count(*) = 0 from public.won_deals), 'Vorlage für alle sichtbar, fremde Zahlen nicht');
+update public.commission_models set name = 'Geändert';
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000c';
+select pg_temp.fails($$insert into public.won_deals (customer, closed_on, deal_value) values ('X', '2026-08-01', 1)$$, 'row-level security', 'inaktiver Benutzer trägt nichts ein');
+reset role;
+select pg_temp.check((select count(*) = 2 and min(deal_value) = 6500 from public.won_deals) and (select count(*) = 1 from public.pay_plans),
+                     'fremde Änderungen und Löschungen ohne Wirkung');
+select pg_temp.check((select name = 'Stufenprovision' from public.commission_models), 'Vorlage ohne Recht nicht änderbar');
+set role anon;
+select pg_temp.fails($$select 1 from public.won_deals$$, 'permission denied', 'Gast sieht keine Verdienste');
+reset role;
+delete from public.leads where id = '10000000-0000-0000-0000-000000000088';
+select pg_temp.check((select count(*) = 1 from public.won_deals where customer = 'Stern-Apotheke' and lead_id is null), 'Lead gelöscht: Kunde bleibt eingetragen');
+insert into public.leads (id, name) values ('10000000-0000-0000-0000-000000000089', 'Sonnen-Apotheke'), ('10000000-0000-0000-0000-000000000090', 'Sonnen Apotheke');
+insert into public.won_deals (user_id, customer, lead_id, closed_on, deal_value)
+values (:bob, 'Sonnen Apotheke', '10000000-0000-0000-0000-000000000090', '2026-09-01', 6500);
+set role authenticated;
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000a';
+select public.merge_leads('10000000-0000-0000-0000-000000000089', '10000000-0000-0000-0000-000000000090');
+reset role;
+select pg_temp.check((select lead_id = '10000000-0000-0000-0000-000000000089' from public.won_deals where customer = 'Sonnen Apotheke'),
+                     'Leads zusammengeführt: eingetragener Kunde zeigt auf den behaltenen Lead');
+
 select 'ALLE DATENBANK-TESTS BESTANDEN' as ergebnis;

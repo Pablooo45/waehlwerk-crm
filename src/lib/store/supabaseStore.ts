@@ -2,6 +2,7 @@
 
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { config } from '../config.ts';
+import { checkDeal, checkPlan, cleanTiers, normDeal, normModel, normPlan } from '../earnings.ts';
 import { searchTerms } from '../filters.ts';
 import { normalizePhone } from '../format.ts';
 import { uuid } from '../ids.ts';
@@ -18,6 +19,7 @@ import type {
   CallQuality,
   Comment,
   CommentTarget,
+  CommissionModel,
   Contact,
   CustomActivity,
   CustomField,
@@ -44,6 +46,7 @@ import type {
   OpportunityStatus,
   OrgSettings,
   OutcomeRow,
+  PayPlan,
   Permission,
   PhoneNumberRow,
   Pipeline,
@@ -57,6 +60,7 @@ import type {
   Task,
   TimelineItem,
   VoicemailDrop,
+  WonDeal,
   Workflow,
   WorkflowRun,
 } from '../types.ts';
@@ -873,6 +877,98 @@ export class SupabaseStore implements Store {
 
   async deleteSmartView(id: ID) {
     must(await this.sb.from('smart_views').delete().eq('id', id), 'Smart View löschen');
+  }
+
+  // ---------- Mein Verdienst (Zeilenrechte: Stand und Kunden sieht nur die Person selbst) ----------
+  async listCommissionModels() {
+    const rows = must(await this.sb.from('commission_models').select('*').order('sort').order('name'), 'Provisionsmodelle') as CommissionModel[];
+    return rows.map(normModel);
+  }
+
+  async saveCommissionModel(m: Partial<CommissionModel> & { name: string }) {
+    if (!m.name.trim()) throw new Error('Provisionsmodell: Bitte einen Namen eintragen.');
+    const row = {
+      name: m.name.trim(),
+      description: m.description ?? '',
+      tiers: cleanTiers(m.tiers),
+      per_deal: Math.max(0, Number(m.per_deal ?? 0)),
+      deal_value: Math.max(0, Number(m.deal_value ?? 0)),
+      sort: m.sort ?? 100,
+    };
+    const res = m.id
+      ? await this.sb.from('commission_models').update(row).eq('id', m.id).select('*').single()
+      : await this.sb.from('commission_models').insert(row).select('*').single();
+    return normModel(must(res, 'Provisionsmodell') as CommissionModel);
+  }
+
+  async deleteCommissionModel(id: ID) {
+    must(await this.sb.from('commission_models').delete().eq('id', id), 'Provisionsmodell löschen');
+  }
+
+  async listPayPlans() {
+    const rows = must(await this.sb.from('pay_plans').select('*').eq('user_id', this.user().id).order('valid_from'), 'Verdienst') as PayPlan[];
+    return rows.map(normPlan);
+  }
+
+  async savePayPlan(p: Partial<PayPlan> & { valid_from: string }) {
+    const problem = checkPlan(p);
+    if (problem) throw new Error(problem);
+    const row = {
+      valid_from: p.valid_from,
+      base_salary: Number(p.base_salary ?? 0),
+      model_id: p.model_id ?? null,
+      model_name: p.model_name ?? '',
+      tiers: cleanTiers(p.tiers),
+      per_deal: Number(p.per_deal ?? 0),
+      deal_value: Number(p.deal_value ?? 0),
+      monthly_goal: p.monthly_goal == null ? null : Number(p.monthly_goal),
+    };
+    const res = p.id
+      ? await this.sb.from('pay_plans').update(row).eq('id', p.id).select('*').single()
+      : await this.sb.from('pay_plans').insert(row).select('*').single();
+    if (res.error?.code === '23505') throw new Error('Ab diesem Monat gibt es schon einen Stand – ändere ihn stattdessen.');
+    return normPlan(must(res, 'Verdienst speichern') as PayPlan);
+  }
+
+  async deletePayPlan(id: ID) {
+    must(await this.sb.from('pay_plans').delete().eq('id', id), 'Stand löschen');
+  }
+
+  async listWonDeals() {
+    const out: WonDeal[] = [];
+    for (let from = 0; ; from += 1000) {
+      const rows = must(
+        await this.sb.from('won_deals').select('*').eq('user_id', this.user().id).order('closed_on', { ascending: false }).order('id').range(from, from + 999),
+        'Kunden',
+      ) as WonDeal[];
+      out.push(...rows.map(normDeal));
+      if (rows.length < 1000) break;
+    }
+    return out;
+  }
+
+  async saveWonDeal(d: Partial<WonDeal> & { customer: string; closed_on: string; deal_value: number }) {
+    const problem = checkDeal(d);
+    if (problem) throw new Error(problem);
+    const row = {
+      customer: d.customer.trim(),
+      lead_id: d.lead_id ?? null,
+      opportunity_id: d.opportunity_id ?? null,
+      setting_date: d.setting_date || null,
+      closed_on: d.closed_on,
+      deal_value: Number(d.deal_value),
+      canceled: d.canceled ?? false,
+      note: d.note?.trim() || null,
+    };
+    const res = d.id
+      ? await this.sb.from('won_deals').update(row).eq('id', d.id).select('*').single()
+      : await this.sb.from('won_deals').insert(row).select('*').single();
+    if (res.error?.code === '23505') throw new Error('Diese Opportunity hast du schon als Kunden eingetragen.');
+    return normDeal(must(res, 'Kunde speichern') as WonDeal);
+  }
+
+  async deleteWonDeal(id: ID) {
+    must(await this.sb.from('won_deals').delete().eq('id', id), 'Kunde löschen');
   }
 
   // ---------- Berichte ----------

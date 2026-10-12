@@ -4,6 +4,7 @@
 
 import { demoDialogRecording, DEMO_SCRIPTS, buildScript, type DemoRecording } from '../audio/demoAudio.ts';
 import { addDays, DAY, startOfDay } from '../dates.ts';
+import { checkDeal, checkPlan, cleanTiers } from '../earnings.ts';
 import { matchesFilter, searchTerms } from '../filters.ts';
 import { fillTemplate, normalizePhone } from '../format.ts';
 import { uuid } from '../ids.ts';
@@ -18,6 +19,7 @@ import type {
   CallQuality,
   Comment,
   CommentTarget,
+  CommissionModel,
   Contact,
   CustomActivity,
   DailyRow,
@@ -37,6 +39,7 @@ import type {
   Opportunity,
   OrgSettings,
   OutcomeRow,
+  PayPlan,
   Permission,
   Profile,
   RefData,
@@ -47,6 +50,7 @@ import type {
   Task,
   TimelineItem,
   VoicemailDrop,
+  WonDeal,
   WorkflowRun,
 } from '../types.ts';
 import { blobToDataUrl, demoRecording, demoRecordingSamples } from '../wav.ts';
@@ -708,6 +712,12 @@ export class DemoStore implements Store {
     this.require('delete_leads', 'Keine Berechtigung zum Löschen.');
     if (ids.length > 1) this.require('bulk_delete', 'Keine Berechtigung zum gesammelten Löschen.');
     const set = new Set(ids.filter((id) => this.canSeeLeadId(id)));
+    // eingetragene Kunden bleiben, verlieren nur die Verknüpfung (wie „on delete set null“)
+    const oppsGone = new Set(this.db.opportunities.filter((o) => set.has(o.lead_id)).map((o) => o.id));
+    this.db.wonDeals.forEach((d) => {
+      if (d.lead_id && set.has(d.lead_id)) d.lead_id = null;
+      if (d.opportunity_id && oppsGone.has(d.opportunity_id)) d.opportunity_id = null;
+    });
     this.db.leads = this.db.leads.filter((l) => !set.has(l.id));
     this.db.contacts = this.db.contacts.filter((c) => !set.has(c.lead_id));
     this.db.notes = this.db.notes.filter((n) => !set.has(n.lead_id));
@@ -848,7 +858,7 @@ export class DemoStore implements Store {
       }
     }
     [this.db.contacts, this.db.calls, this.db.notes, this.db.emails, this.db.sms, this.db.tasks, this.db.meetings, this.db.opportunities,
-      this.db.events, this.db.activities, this.db.comments, this.db.notifications, this.db.runs].forEach((arr) => move(arr as { lead_id: ID | null }[]));
+      this.db.events, this.db.activities, this.db.comments, this.db.notifications, this.db.runs, this.db.wonDeals].forEach((arr) => move(arr as { lead_id: ID | null }[]));
     const keepCustom = Object.fromEntries(Object.entries(k.custom).filter(([, v]) => v !== null && v !== '' && !(Array.isArray(v) && !v.length)));
     Object.assign(k, {
       url: k.url || m.url,
@@ -1647,6 +1657,7 @@ export class DemoStore implements Store {
       if (!((own && this.has('delete_own_opportunities')) || this.has('manage_others_opportunities'))) throw new Error('Keine Berechtigung zum Löschen.');
     }
     this.db.opportunities = this.db.opportunities.filter((x) => x.id !== id);
+    this.db.wonDeals.forEach((d) => d.opportunity_id === id && (d.opportunity_id = null));
     this.persist();
   }
 
@@ -1683,6 +1694,132 @@ export class DemoStore implements Store {
     const view = this.db.smartViews.find((x) => x.id === id);
     if (view && view.created_by !== this.me?.id && !this.has('manage_team_smart_views')) throw new Error('Keine Berechtigung für geteilte Smart Views anderer.');
     this.db.smartViews = this.db.smartViews.filter((v) => v.id !== id);
+    this.persist();
+  }
+
+  // ---------- Mein Verdienst (wie in der Datenbank: Stand und Kunden sieht nur die Person selbst) ----------
+  async listCommissionModels() {
+    await wait();
+    this.user();
+    return clone([...this.db.commissionModels].sort((a, b) => a.sort - b.sort || a.name.localeCompare(b.name, 'de')));
+  }
+
+  async saveCommissionModel(m: Partial<CommissionModel> & { name: string }) {
+    await wait();
+    this.require('manage_customizations', 'Provisionsmodelle fürs Team pflegt, wer Einstellungen anpassen darf.');
+    if (!m.name.trim()) throw new Error('Provisionsmodell: Bitte einen Namen eintragen.');
+    const now = nowIso();
+    const row = {
+      name: m.name.trim(),
+      description: m.description ?? '',
+      tiers: cleanTiers(m.tiers),
+      per_deal: Math.max(0, Number(m.per_deal ?? 0)),
+      deal_value: Math.max(0, Number(m.deal_value ?? 0)),
+      sort: m.sort ?? 100,
+    };
+    let saved = m.id ? this.db.commissionModels.find((x) => x.id === m.id) : undefined;
+    if (m.id && !saved) throw new Error('Provisionsmodell nicht gefunden.');
+    if (saved) Object.assign(saved, row, { updated_at: now });
+    else {
+      saved = { id: uuid(), ...row, created_at: now, updated_at: now };
+      this.db.commissionModels.push(saved);
+    }
+    this.persist();
+    return clone(saved);
+  }
+
+  async deleteCommissionModel(id: ID) {
+    await wait();
+    this.require('manage_customizations', 'Provisionsmodelle fürs Team pflegt, wer Einstellungen anpassen darf.');
+    this.db.commissionModels = this.db.commissionModels.filter((x) => x.id !== id);
+    // eigene Stände behalten ihre Kopie des Modells
+    this.db.payPlans.forEach((p) => p.model_id === id && (p.model_id = null));
+    this.persist();
+  }
+
+  async listPayPlans() {
+    await wait();
+    const me = this.user().id;
+    return clone(this.db.payPlans.filter((p) => p.user_id === me).sort((a, b) => a.valid_from.localeCompare(b.valid_from)));
+  }
+
+  async savePayPlan(p: Partial<PayPlan> & { valid_from: string }) {
+    await wait();
+    const me = this.user().id;
+    const problem = checkPlan(p);
+    if (problem) throw new Error(problem);
+    if (this.db.payPlans.some((x) => x.user_id === me && x.valid_from === p.valid_from && x.id !== p.id)) {
+      throw new Error('Ab diesem Monat gibt es schon einen Stand – ändere ihn stattdessen.');
+    }
+    const now = nowIso();
+    const row = {
+      valid_from: p.valid_from,
+      base_salary: Number(p.base_salary ?? 0),
+      model_id: p.model_id && this.db.commissionModels.some((m) => m.id === p.model_id) ? p.model_id : null,
+      model_name: p.model_name ?? '',
+      tiers: cleanTiers(p.tiers),
+      per_deal: Number(p.per_deal ?? 0),
+      deal_value: Number(p.deal_value ?? 0),
+      monthly_goal: p.monthly_goal == null ? null : Number(p.monthly_goal),
+    };
+    let saved = p.id ? this.db.payPlans.find((x) => x.id === p.id && x.user_id === me) : undefined;
+    if (p.id && !saved) throw new Error('Verdienst: Diesen Stand gibt es nicht mehr.');
+    if (saved) Object.assign(saved, row, { updated_at: now });
+    else {
+      saved = { id: uuid(), user_id: me, ...row, created_at: now, updated_at: now };
+      this.db.payPlans.push(saved);
+    }
+    this.persist();
+    return clone(saved);
+  }
+
+  async deletePayPlan(id: ID) {
+    await wait();
+    const me = this.user().id;
+    this.db.payPlans = this.db.payPlans.filter((p) => !(p.id === id && p.user_id === me));
+    this.persist();
+  }
+
+  async listWonDeals() {
+    await wait();
+    const me = this.user().id;
+    return clone(this.db.wonDeals.filter((d) => d.user_id === me).sort((a, b) => b.closed_on.localeCompare(a.closed_on) || a.id.localeCompare(b.id)));
+  }
+
+  async saveWonDeal(d: Partial<WonDeal> & { customer: string; closed_on: string; deal_value: number }) {
+    await wait();
+    const me = this.user().id;
+    const problem = checkDeal(d);
+    if (problem) throw new Error(problem);
+    if (d.opportunity_id && this.db.wonDeals.some((x) => x.user_id === me && x.opportunity_id === d.opportunity_id && x.id !== d.id)) {
+      throw new Error('Diese Opportunity hast du schon als Kunden eingetragen.');
+    }
+    const now = nowIso();
+    const row = {
+      customer: d.customer.trim(),
+      lead_id: d.lead_id && this.db.leads.some((l) => l.id === d.lead_id) ? d.lead_id : null,
+      opportunity_id: d.opportunity_id && this.db.opportunities.some((o) => o.id === d.opportunity_id) ? d.opportunity_id : null,
+      setting_date: d.setting_date || null,
+      closed_on: d.closed_on,
+      deal_value: Number(d.deal_value),
+      canceled: d.canceled ?? false,
+      note: d.note?.trim() || null,
+    };
+    let saved = d.id ? this.db.wonDeals.find((x) => x.id === d.id && x.user_id === me) : undefined;
+    if (d.id && !saved) throw new Error('Kunde: Diesen Eintrag gibt es nicht mehr.');
+    if (saved) Object.assign(saved, row, { updated_at: now });
+    else {
+      saved = { id: uuid(), user_id: me, ...row, created_at: now, updated_at: now };
+      this.db.wonDeals.push(saved);
+    }
+    this.persist();
+    return clone(saved);
+  }
+
+  async deleteWonDeal(id: ID) {
+    await wait();
+    const me = this.user().id;
+    this.db.wonDeals = this.db.wonDeals.filter((d) => !(d.id === id && d.user_id === me));
     this.persist();
   }
 

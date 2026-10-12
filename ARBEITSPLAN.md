@@ -62,9 +62,13 @@ Bisher ist vor allem die Demo-Fassung durchgeklickt. Der echte Betrieb (Supabase
 - [x] E1 Rundgang Desktop, Handy, Dunkelmodus (alle Hauptseiten, Lead-Seite mit Notiz-Editor, Einstellungen): keine Konsolenfehler. Behoben: Zähler an den Reitern im Dunkelmodus unsichtbar, Berichte zeigten „– der Erreichten“, wenn noch niemand erreicht wurde.
 - [x] E2 README und EINRICHTUNG geprüft: alle genannten Knöpfe, Menüpunkte und Meldungen mit der Oberfläche abgeglichen und korrigiert, 13 Server-Funktionen, Workflow „Tests“. Demo neu gebaut und veröffentlicht.
 
+### F – Wünsche nach dem Abschluss
+- [x] F1 Mein Verdienst (Wunsch von Nico, Vorbild: seine Tabelle „Kunden & Provision“): Fixgehalt, Provisionsmodell (Vorlagen fürs Team unter Einstellungen → Provisionsmodelle, für sich anpassbar), gewonnene Kunden mit Setting-Termin, Abschluss, Dealwert, Notiz und Storno; Umsatz, Stufe, Provision, Brutto, Monatsziel, „noch … bis zur nächsten Stufe“, Jahresübersicht; gewonnene Opportunities übernehmen. Neue Migration, Datenbank-Tests (nur die Person selbst sieht ihre Zahlen), Rechen-Tests, Klick-Tests in Demo und echtem Betrieb.
+
 ## Stand
 
 - 2026-10-12: **Alle Aufgaben erledigt außer C4** (Predictive Dialer, wartet auf Nicos Entscheidung). Automatische Läufe haben nichts mehr zu tun: sofort beenden, nichts ändern.
+- 2026-10-12 (abends): F1 „Mein Verdienst“ erledigt.
 - Offen bei Nico: Supabase-Projekt, Access Token und das GitHub-Secret `SUPABASE_ACCESS_TOKEN` (EINRICHTUNG.md, Schritt 1–2). Bis dahin überspringt der Workflow „Server“ die Installation, die Website läuft im Demo-Modus.
 
 ## Protokoll
@@ -79,3 +83,4 @@ Bisher ist vor allem die Demo-Fassung durchgeklickt. Der echte Betrieb (Supabase
 - 2026-10-12 – Fehlerfälle (D2): Offline-Hinweis, automatische Abmeldung mit Erklärung, Absturz-Schutz für Seiten, Zeitlimits für Anfragen.
 - 2026-10-12 – Rundgang (E1) in hell, dunkel und am Handy mit Bildschirmfotos. Zwei kleine Darstellungsfehler behoben (Reiter-Zähler im Dunkelmodus, Prozentangaben in den Berichten ohne Grundlage); README um Notiz-Formatierung, Leistung, `test:perf` und `email-track` ergänzt.
 - 2026-10-12 – Abschluss (E2): Doku mit der Oberfläche abgeglichen (Knopfnamen beim Postfach und bei den Abschriften, Meldung zu Port 587, Zahl der Server-Funktionen, Workflow „Tests“). GitHub-Workflows laufen fest auf Ubuntu 24.04, weil GitHub „ubuntu-latest“ ab 19. Oktober auf Ubuntu 26 umstellt und die Tests sonst ohne Änderung bei uns anders laufen könnten. Demo neu veröffentlicht. Geplante Aufgaben: In der Liste stehen nur zwei erledigte Erinnerungen (beide aus), keine aktive „Wählwerk weiterbauen“ – falls Nico sie in der Desktop-App angelegt hat, schaltet er sie dort ab.
+- 2026-10-12 – Mein Verdienst (F1). Entscheidungen: Zahlen sieht nur die Person selbst (Zeilenrechte, auch nicht Admins), weil es um Gehalt geht. Rechnung wie in Nicos Tabelle: Umsatz zählt im Monat des Abschlusses, die erreichte Stufe gilt für den ganzen Monatsumsatz, Brutto = Fixgehalt + Provision. Gehalt und Modell haben einen „gilt ab“-Monat, damit eine Gehaltserhöhung frühere Monate nicht verändert; beim Auswählen wird das Modell in den eigenen Stand kopiert. Nicos echte Provisionsstufen und sein Gehalt stehen bewusst nicht im Code: Das Repository und die Demo-Seite sind öffentlich. Die Demo nutzt Beispielzahlen; das echte Modell legt ein Admin einmal unter Einstellungen → Provisionsmodelle an. Leads zusammenführen: eingetragene Kunden wandern mit (merge_leads um eine Zeile ergänzt).

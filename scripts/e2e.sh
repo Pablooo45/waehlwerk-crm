@@ -10,7 +10,7 @@ URL="file://$PWD/dist-demo/waehlwerk-demo.html"
 OUT="${E2E_OUT:-$(mktemp -d)}"
 mkdir -p "$OUT"
 fail=0
-for t in flows next_lead call_note notes mobile; do
+for t in flows next_lead call_note notes earnings mobile; do
   echo "== $t"
   if ! python3 "tests/e2e/$t.py" "$URL" "$OUT"; then
     echo "!! $t fehlgeschlagen"

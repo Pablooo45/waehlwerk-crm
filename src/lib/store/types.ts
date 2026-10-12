@@ -12,6 +12,7 @@ import type {
   CallQuality,
   Comment,
   CommentTarget,
+  CommissionModel,
   Contact,
   CustomActivity,
   CustomField,
@@ -36,6 +37,7 @@ import type {
   OpportunityStatus,
   OrgSettings,
   OutcomeRow,
+  PayPlan,
   PhoneNumberRow,
   Pipeline,
   Profile,
@@ -48,6 +50,7 @@ import type {
   Task,
   TimelineItem,
   VoicemailDrop,
+  WonDeal,
   Workflow,
   WorkflowRun,
 } from '../types.ts';
@@ -327,6 +330,17 @@ export interface Store {
   // Smart Views
   saveSmartView(v: Partial<SmartView> & { name: string; filters: FilterSet; sort: SortSpec }): Promise<SmartView>;
   deleteSmartView(id: ID): Promise<void>;
+
+  // Mein Verdienst: Vorlagen fürs Team, Stand und Kunden nur für die angemeldete Person
+  listCommissionModels(): Promise<CommissionModel[]>;
+  saveCommissionModel(m: Partial<CommissionModel> & { name: string }): Promise<CommissionModel>;
+  deleteCommissionModel(id: ID): Promise<void>;
+  listPayPlans(): Promise<PayPlan[]>;
+  savePayPlan(p: Partial<PayPlan> & { valid_from: string }): Promise<PayPlan>;
+  deletePayPlan(id: ID): Promise<void>;
+  listWonDeals(): Promise<WonDeal[]>;
+  saveWonDeal(d: Partial<WonDeal> & { customer: string; closed_on: string; deal_value: number }): Promise<WonDeal>;
+  deleteWonDeal(id: ID): Promise<void>;
 
   // Berichte
   reportActivity(from: Date, to: Date, users?: ID[] | null): Promise<ActivityRow[]>;

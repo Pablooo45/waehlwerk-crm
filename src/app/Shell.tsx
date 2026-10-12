@@ -54,6 +54,7 @@ const LivePage = lazy(() => import('../features/calls/LivePage.tsx'));
 const WorkflowsPage = lazy(() => import('../features/workflows/WorkflowsPage.tsx'));
 const WorkflowPage = lazy(() => import('../features/workflows/WorkflowPage.tsx'));
 const ReportsPage = lazy(() => import('../features/reports/ReportsPage.tsx'));
+const EarningsPage = lazy(() => import('../features/earnings/EarningsPage.tsx'));
 const SettingsPage = lazy(() => import('../features/settings/SettingsPage.tsx'));
 const MorePage = lazy(() => import('../features/more/MorePage.tsx'));
 
@@ -370,6 +371,8 @@ function Page({ route }: { route: Route }) {
       return <WorkflowPage id={route.id} key={route.id} />;
     case 'reports':
       return <ReportsPage tab={route.tab} />;
+    case 'earnings':
+      return <EarningsPage month={route.month} />;
     case 'more':
       return <MorePage />;
     case 'settings':

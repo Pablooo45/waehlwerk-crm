@@ -380,6 +380,47 @@ with sync_playwright() as p:
         expect(page.locator('.inbox-side')).to_be_visible()
     check('Inbox öffnen', inbox)
 
+    # ---------- Mein Verdienst ----------
+    def commission_model():
+        go(page, '#/settings/commission', 1500)
+        page.get_by_role('button', name='Neues Modell').click()
+        dlg = page.get_by_role('dialog')
+        dlg.locator('#model-name').fill('Stufenprovision Test')
+        dlg.get_by_role('button', name='Stufe hinzufügen').click()
+        dlg.locator('#model-tier-from-0').fill('25.000')
+        dlg.locator('#model-tier-rate-0').fill('2')
+        dlg.get_by_role('button', name='Stufe hinzufügen').click()
+        dlg.locator('#model-tier-from-1').fill('35.000')
+        dlg.locator('#model-tier-rate-1').fill('3')
+        dlg.locator('#model-deal-value').fill('6.500')
+        dlg.get_by_role('button', name='Speichern').click()
+        expect(page.locator('.sort-row', has_text='Stufenprovision Test')).to_contain_text('2 Stufen', timeout=6000)
+        assert sql("select tiers::text from public.commission_models where name = 'Stufenprovision Test'") == '[{"from": 25000, "rate": 2}, {"from": 35000, "rate": 3}]'
+    check('Provisionsmodell fürs Team anlegen', commission_model)
+
+    def earnings():
+        go(page, '#/earnings', 1500)
+        expect(page.locator('.earn-setup')).to_be_visible()
+        page.get_by_role('button', name='Jetzt einrichten').click()
+        dlg = page.get_by_role('dialog')
+        expect(dlg.locator('#plan-model option:checked')).to_have_text('Stufenprovision Test')
+        dlg.locator('#plan-base').fill('3.000')
+        dlg.get_by_role('button', name='Speichern').click()
+        expect(page.locator('.earn-setup')).to_have_count(0, timeout=6000)
+        page.get_by_role('button', name='Kunde eintragen').first.click()
+        dlg = page.get_by_role('dialog')
+        dlg.get_by_label('Lead suchen').fill('Adler-Apotheke')
+        dlg.locator('.menu-item', has_text='Adler-Apotheke').first.click()
+        expect(dlg.locator('#deal-customer')).to_have_value('Adler-Apotheke')
+        dlg.locator('#deal-value').fill('26.000')
+        dlg.get_by_role('button', name='Speichern').click()
+        expect(page.locator('.earn-kpis .kpi').nth(1).locator('.v')).to_contain_text('520', timeout=6000)
+        expect(page.locator('.earn-kpis .kpi').nth(2).locator('.v')).to_contain_text('3.520')
+        row = sql("select d.customer || '|' || d.deal_value || '|' || (d.lead_id is not null) || '|' || p.email from public.won_deals d join public.profiles p on p.id = d.user_id")
+        assert row == 'Adler-Apotheke|26000.00|true|admin@waehlwerk.test', row
+        page.screenshot(path=f'{OUT}/real-earnings.png', full_page=True)
+    check('Verdienst einrichten, Kunden eintragen, Provision gerechnet', earnings)
+
     # In einem zweiten Tab abgemeldet: der erste Tab merkt es und zeigt die Anmeldung mit Hinweis
     def other_tab_logout():
         other = page.context.new_page()
@@ -425,6 +466,19 @@ with sync_playwright() as p:
         expect(page.locator('.tl-item', has_text='Notiz von Mia')).to_be_visible(timeout=5000)
     check('Mia schreibt eine Notiz an ihrem Lead', mia_note)
     page.screenshot(path=f'{OUT}/real-mia.png')
+
+    def mia_earnings():
+        go(page, '#/earnings', 1800)
+        expect(page.locator('.earn-setup')).to_be_visible()
+        assert page.locator('.earn-deals').count() == 0, 'Mia sieht fremde Kunden'
+        assert 'Adler-Apotheke' not in page.locator('.page').inner_text(), 'fremder Verdienst sichtbar'
+        page.get_by_role('button', name='Jetzt einrichten').click()
+        dlg = page.get_by_role('dialog')
+        expect(dlg.locator('#plan-model option:checked')).to_have_text('Stufenprovision Test')  # Vorlage ist für alle da
+        dlg.get_by_role('button', name='Abbrechen').click()
+        go(page, '#/settings/commission', 1200)
+        expect(page.get_by_text('Dieser Bereich ist für deine Rolle nicht freigegeben')).to_be_visible()
+    check('Mia sieht fremde Verdienste nicht, nutzt aber die Vorlage', mia_earnings)
 
     b.close()
 

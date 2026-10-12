@@ -656,6 +656,58 @@ export interface Opportunity {
   lead?: { id: ID; name: string } | null;
 }
 
+// ---------- Mein Verdienst ----------
+// Stufe: ab diesem Monatsumsatz (€) gilt der Prozentsatz für den ganzen Umsatz des Monats.
+export interface CommissionTier {
+  from: number;
+  rate: number;
+}
+
+// Vorlage fürs Team (Einstellungen → Provisionsmodelle)
+export interface CommissionModel {
+  id: ID;
+  name: string;
+  description: string;
+  tiers: CommissionTier[];
+  per_deal: number; // fester Betrag je gewonnenem Kunden
+  deal_value: number; // Standard-Dealwert, Vorschlag beim Eintragen
+  sort: number;
+  created_at: ISODate;
+  updated_at: ISODate;
+}
+
+// Eigener Stand von Fixgehalt und Provisionsmodell, gilt ab valid_from (Monatsanfang) bis zum nächsten Stand
+export interface PayPlan {
+  id: ID;
+  user_id: ID;
+  valid_from: string; // YYYY-MM-01
+  base_salary: number;
+  model_id: ID | null;
+  model_name: string;
+  tiers: CommissionTier[];
+  per_deal: number;
+  deal_value: number;
+  monthly_goal: number | null;
+  created_at: ISODate;
+  updated_at: ISODate;
+}
+
+// Gewonnener Kunde; der Umsatz zählt im Monat des Abschlusses
+export interface WonDeal {
+  id: ID;
+  user_id: ID;
+  customer: string;
+  lead_id: ID | null;
+  opportunity_id: ID | null;
+  setting_date: string | null; // YYYY-MM-DD
+  closed_on: string; // YYYY-MM-DD
+  deal_value: number;
+  canceled: boolean;
+  note: string | null;
+  created_at: ISODate;
+  updated_at: ISODate;
+}
+
 export interface LeadEvent {
   id: ID;
   lead_id: ID;

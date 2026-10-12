@@ -90,6 +90,7 @@ Steht oben auf der Seite „Demo-Modus“, kennt die Website ihre Datenbank noch
 1. **Einstellungen → Rollen & Rechte**: Die Rollen Admin, Super User, User und Eingeschränkt gibt es schon. Eigene Rollen (z. B. „Opener“) mit einzelnen Rechten und Lead-Sichtbarkeit anlegen.
 2. **Einstellungen → Gruppen**: z. B. „Opener-Team“, „Closer“ – für die Rufverteilung und Berichte.
 3. **Einstellungen → Benutzer → Person hinzufügen**: Name, E-Mail, Funktion, Rolle, Gruppen. Entweder ein Startpasswort weitergeben oder eine Einladung per E-Mail schicken lassen.
+4. **Einstellungen → Provisionsmodelle**: euer Provisionsmodell einmal als Vorlage anlegen (Stufen ab Monatsumsatz mit Prozent, Standard-Dealwert, auf Wunsch ein fester Betrag je Kunde). Danach wählt es jede Person unter **Verdienst** aus und trägt ihr Fixgehalt ein. Was jemand verdient, sieht nur diese Person.
 
 Jede Person braucht:
 - Chrome oder Edge (aktuell)

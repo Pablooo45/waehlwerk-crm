@@ -3,7 +3,7 @@
 // Smart Views und Vorlagen entsprechen der Einrichtung bei Salus Digital.
 
 import { DEMO_SCRIPTS, scriptDurationSeconds } from '../audio/demoAudio.ts';
-import { addDays, startOfDay } from '../dates.ts';
+import { addDays, isoDay, startOfDay } from '../dates.ts';
 import { ALL_PERMISSIONS } from '../perms.ts';
 import type {
   ActivityType,
@@ -11,6 +11,8 @@ import type {
   Call,
   CallOutcome,
   Comment,
+  CommissionModel,
+  CommissionTier,
   Contact,
   CustomActivity,
   CustomField,
@@ -29,6 +31,7 @@ import type {
   Opportunity,
   OpportunityStatus,
   OrgSettings,
+  PayPlan,
   Permission,
   PhoneNumberRow,
   Pipeline,
@@ -38,6 +41,7 @@ import type {
   SmsMessage,
   Task,
   VoicemailDrop,
+  WonDeal,
   Workflow,
   WorkflowRun,
 } from '../types.ts';
@@ -78,9 +82,12 @@ export interface DemoDb {
   emailAccounts: EmailAccount[];
   dismissed: [string, string][];
   callScripts: Record<string, { key: string; seed: number }>;
+  commissionModels: CommissionModel[];
+  payPlans: PayPlan[];
+  wonDeals: WonDeal[];
 }
 
-export const DEMO_VERSION = 10;
+export const DEMO_VERSION = 11;
 
 /** Wochenende vermeiden: Samstag/Sonntag auf Montag (dir = 1) bzw. Freitag (dir = -1) schieben. */
 function weekday(d: Date, dir: 1 | -1): Date {
@@ -1162,7 +1169,84 @@ export function createDemoDb(now = new Date()): DemoDb {
     emailAccounts: [],
     dismissed: [],
     callScripts,
+    ...demoEarnings(leads, opportunities, now),
   };
+}
+
+// ---------- Mein Verdienst ----------
+// Erfundene Beispielzahlen (keine echten Gehälter oder Provisionsstufen). Alex hat einen Stand mit Kunden in den
+// letzten Monaten, Lea zusätzlich gewonnene Opportunities, die sie noch übernehmen kann; die anderen starten leer.
+const CM = {
+  stufen: 'c0000000-0000-4000-8000-000000000001',
+  jeKunde: 'c0000000-0000-4000-8000-000000000002',
+};
+
+function demoEarnings(leads: Lead[], opportunities: Opportunity[], now: Date): Pick<DemoDb, 'commissionModels' | 'payPlans' | 'wonDeals'> {
+  const stamp = now.toISOString();
+  const tiers: CommissionTier[] = [
+    { from: 20000, rate: 2 },
+    { from: 30000, rate: 3 },
+    { from: 40000, rate: 4 },
+    { from: 50000, rate: 5 },
+    { from: 65000, rate: 6 },
+    { from: 80000, rate: 8 },
+  ];
+  const commissionModels: CommissionModel[] = [
+    {
+      id: CM.stufen, name: 'Stufenprovision (Beispiel)', description: 'Ab 20.000 € Monatsumsatz gibt es 2 % auf den ganzen Umsatz des Monats, mit jeder Stufe mehr.',
+      tiers, per_deal: 0, deal_value: 5000, sort: 10, created_at: stamp, updated_at: stamp,
+    },
+    {
+      id: CM.jeKunde, name: 'Betrag je Kunde (Beispiel)', description: 'Fester Betrag für jeden gewonnenen Kunden, z. B. für Setter.',
+      tiers: [], per_deal: 250, deal_value: 5000, sort: 20, created_at: stamp, updated_at: stamp,
+    },
+  ];
+  const first = (back: number) => new Date(now.getFullYear(), now.getMonth() - back, 1);
+  const plan = (n: number, user: string, back: number, base: number, goal: number): PayPlan => ({
+    id: `c1000000-0000-4000-8000-${String(n).padStart(12, '0')}`, user_id: user, valid_from: isoDay(first(back)), base_salary: base,
+    model_id: CM.stufen, model_name: commissionModels[0].name, tiers, per_deal: 0, deal_value: 5000, monthly_goal: goal, created_at: stamp, updated_at: stamp,
+  });
+  const payPlans = [plan(1, U.alex, 3, 2800, 5000), plan(2, U.lea, 5, 3000, 6000)];
+
+  // Kunden aus den Beispiel-Leads mit Status „Kunde“, danach weitere
+  const pool = [...leads.filter((l) => l.status_id === S.kunde), ...leads.filter((l) => l.status_id !== S.kunde)];
+  let next = 0;
+  const wonDeals: WonDeal[] = [];
+  const add = (user: string, back: number, day: number, value: number, extra: Partial<WonDeal> = {}) => {
+    const start = first(back);
+    const lastDay = new Date(start.getFullYear(), start.getMonth() + 1, 0).getDate();
+    let d = weekday(new Date(start.getFullYear(), start.getMonth(), Math.min(day, lastDay)), day <= 2 ? 1 : -1);
+    if (d > now) d = startOfDay(now); // nichts in der Zukunft
+    const lead = pool[next++ % pool.length];
+    wonDeals.push({
+      id: `c2000000-0000-4000-8000-${String(wonDeals.length + 1).padStart(12, '0')}`,
+      user_id: user, customer: lead.name, lead_id: lead.id, opportunity_id: null,
+      setting_date: isoDay(weekday(addDays(d, -8), -1)), closed_on: isoDay(d), deal_value: value, canceled: false, note: null,
+      created_at: stamp, updated_at: stamp, ...extra,
+    });
+  };
+  // Alex: vor drei Monaten 15.000 €, vor zwei 48.000 € (4 %), letzten Monat 27.500 € (2 %, ein Storno), diesen Monat 11.000 €
+  [3, 10, 17].forEach((day) => add(U.alex, 3, day, 5000));
+  [2, 4, 6, 9, 12, 16, 19, 23].forEach((day) => add(U.alex, 2, day, 5000));
+  add(U.alex, 2, 26, 8000, { note: 'Größeres Paket mit Website' });
+  [3, 8, 14, 21].forEach((day) => add(U.alex, 1, day, 5000));
+  add(U.alex, 1, 24, 7500);
+  add(U.alex, 1, 27, 5000, { canceled: true, note: 'In der Widerrufsfrist storniert' });
+  add(U.alex, 0, 2, 5000);
+  add(U.alex, 0, 6, 6000, { note: 'Zahlt in zwei Raten' });
+  // Lea: frühere Monate von Hand, dazu eine gewonnene Opportunity übernommen – die übrigen schlägt die Seite vor
+  [5, 12, 19, 26].forEach((day) => add(U.lea, 2, day, 5000));
+  [4, 11, 18, 22, 25, 29].forEach((day) => add(U.lea, 1, day, 5000));
+  const won = opportunities.find((o) => o.user_id === U.lea && o.closed_at && o.value > 0);
+  const wonLead = won && leads.find((l) => l.id === won.lead_id);
+  if (won && wonLead) {
+    wonDeals.push({
+      id: `c2000000-0000-4000-8000-${String(wonDeals.length + 1).padStart(12, '0')}`,
+      user_id: U.lea, customer: wonLead.name, lead_id: wonLead.id, opportunity_id: won.id, setting_date: null,
+      closed_on: isoDay(new Date(won.closed_at!)), deal_value: won.value, canceled: false, note: null, created_at: stamp, updated_at: stamp,
+    });
+  }
+  return { commissionModels, payPlans, wonDeals };
 }
 
 export const DEMO_SCRIPT_KEYS = DEMO_SCRIPTS.map((s) => s.key);

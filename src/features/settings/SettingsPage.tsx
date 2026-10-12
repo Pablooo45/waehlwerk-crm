@@ -10,6 +10,7 @@ const Templates = lazy(() => import('./Templates.tsx'));
 const Team = lazy(() => import('./Team.tsx'));
 const Roles = lazy(() => import('./Roles.tsx'));
 const Groups = lazy(() => import('./Groups.tsx'));
+const Commission = lazy(() => import('./Commission.tsx'));
 const Numbers = lazy(() => import('./Numbers.tsx'));
 const Telephony = lazy(() => import('./Telephony.tsx'));
 const Recordings = lazy(() => import('./Recordings.tsx'));
@@ -70,6 +71,7 @@ export default function SettingsPage({ section }: { section: string }) {
             {current?.id === 'team' ? <Team /> : null}
             {current?.id === 'roles' ? <Roles /> : null}
             {current?.id === 'groups' ? <Groups /> : null}
+            {current?.id === 'commission' ? <Commission /> : null}
             {current?.id === 'numbers' ? <Numbers /> : null}
             {current?.id === 'telephony' ? <Telephony /> : null}
             {current?.id === 'recordings' ? <Recordings /> : null}

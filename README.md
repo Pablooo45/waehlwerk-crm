@@ -7,7 +7,7 @@ Die Einrichtung Schritt für Schritt steht in **[EINRICHTUNG.md](EINRICHTUNG.md)
 ## Was drin ist
 
 **Aufbau wie in Close**
-- Seitenleiste mit Suche (Strg + K), Inbox, Leads (mit „+“ für neue Leads), Kontakte, Opportunities, Gespräche, Berichte, Workflows und euren Smart Views; Telefon und Konto oben links
+- Seitenleiste mit Suche (Strg + K), Inbox, Leads (mit „+“ für neue Leads), Kontakte, Opportunities, Gespräche, Berichte, Verdienst, Workflows und euren Smart Views; Telefon und Konto oben links
 - Lead-Seite in zwei Spalten: links Status, Aufgaben, Opportunities, Kontakte und Felder, rechts Anrufen, E-Mail, SMS, Notiz, Aktivität und Termin – der Editor öffnet sich direkt über dem Verlauf
 - Inbox mit „Abarbeiten“ und „Nächster Lead“, Power Dialer auf der echten Lead-Seite, Pipeline zum Ziehen
 - Alles anpassbar: Lead-Status, Pipelines und Phasen, eigene Felder, eigene Aktivitäten, Anruf-Ergebnisse (mit Status- und Wiedervorlage-Automatik), Links, Rollen – als Listen zum Ziehen mit Bearbeiten-Fenster
@@ -62,6 +62,13 @@ Die Einrichtung Schritt für Schritt steht in **[EINRICHTUNG.md](EINRICHTUNG.md)
 **Berichte**
 - Anwahlen, erreichte Entscheider, gelegte und gebuchte Termine, Gesprächszeit, Abschlüsse – pro Person und Zeitraum
 - Beste Anrufzeiten (Wochentag × Stunde), Ergebnisse, Statuswechsel, Pipeline-Trichter, Auswertung eigener Aktivitäten
+
+**Mein Verdienst** (gibt es in Close nicht, ersetzt die eigene Provisions-Tabelle)
+- Jede Person trägt Fixgehalt und Provisionsmodell ein und erfasst ihre gewonnenen Kunden (Setting-Termin, Abschluss, Dealwert, Notiz, Storno) – Umsatz, erreichte Stufe, Provision, Brutto und Monatsziel rechnen sich von selbst, dazu die Übersicht übers Jahr
+- Stufen nach Monatsumsatz (die erreichte Stufe gilt für den ganzen Umsatz des Monats) und/oder fester Betrag je Kunde; „noch 9.000 € bis zur nächsten Stufe, etwa 2 Kunden“
+- Provisionsmodelle als Vorlagen fürs Team, für sich anpassbar; ändert sich Gehalt oder Modell, rechnen frühere Monate mit dem alten Stand
+- Im CRM gewonnene Opportunities lassen sich mit einem Klick als Kunde übernehmen
+- Nur die Person selbst sieht ihre Zahlen – auch Admins nicht
 
 **Umzug aus Close**
 - Übernahme über die Close-Schnittstelle: Einstellungen, Smart Views mit ihren Filtern, Leads, Kontakte, Opportunities, Verlauf, offene Aufgaben und Aufnahmen – in Etappen, wiederholbar ohne Doppelungen
