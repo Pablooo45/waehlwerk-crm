@@ -6127,6 +6127,30 @@ kbd.kbd-on-dark {
   font-weight: 600;
 }
 
+.track-list {
+  list-style: none;
+  margin: 0 0 8px;
+  padding: 6px 10px;
+  border-radius: var(--radius-m);
+  background: var(--surface-2);
+  font-size: var(--fs-s);
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.track-list li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.track-list li > svg {
+  flex: none;
+  color: var(--cross);
+}
+
 .tl-kv {
   margin-top: 6px;
   display: grid;

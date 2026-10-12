@@ -6,9 +6,17 @@ und Anmeldung – dazu Team, Smart Views, Sammeländerung über mehr als 1000 Le
 Nutzung: python3 tests/real/flows.py http://127.0.0.1:54320 <Ordner für Bildschirmfotos>
 """
 
+import base64
+import hashlib
+import hmac
 import json
+import os
 import re
+import subprocess
 import sys
+import urllib.error
+import urllib.parse
+import urllib.request
 
 from playwright.sync_api import expect, sync_playwright
 
@@ -58,6 +66,33 @@ def open_lead(page, name):
     page.locator('.palette-list button', has_text=name).first.click()
     expect(page.locator('.lead-title')).to_have_value(name, timeout=6000)
     page.wait_for_timeout(600)
+
+
+GATEWAY = 'http://127.0.0.1:54321'
+
+
+def sql(query):
+    env = {**os.environ, 'PGHOST': os.environ.get('PGHOST', '/tmp'), 'PGPORT': os.environ.get('PGPORT', '54329'), 'PGUSER': os.environ.get('PGUSER', 'postgres')}
+    out = subprocess.run(['psql', '-At', '-d', os.environ.get('LOCAL_DB', 'crm_local'), '-c', query], env=env, capture_output=True, text=True, check=True)
+    return out.stdout.strip()
+
+
+def track_sig(key, data):
+    return base64.urlsafe_b64encode(hmac.new(key.encode(), data.encode(), hashlib.sha256).digest()).rstrip(b'=').decode()[:22]
+
+
+class NoRedirect(urllib.request.HTTPRedirectHandler):
+    def redirect_request(self, *args, **kwargs):  # noqa: ARG002
+        return None
+
+
+def fetch(url):
+    opener = urllib.request.build_opener(urllib.request.ProxyHandler({}), NoRedirect)
+    try:
+        with opener.open(url, timeout=15) as r:
+            return r.status, dict(r.headers), r.read()
+    except urllib.error.HTTPError as e:
+        return e.code, dict(e.headers), e.read()
 
 
 def on_response(r):
@@ -188,6 +223,31 @@ with sync_playwright() as p:
         expect(toast.first).to_be_visible(timeout=4000)
         expect(page.locator('.callbar')).to_have_count(0)
     check('Anrufen ohne Twilio: klarer Hinweis', call_without_twilio)
+
+    def email_tracking():
+        lead_id = page.evaluate("location.hash").split('/')[2].split('?')[0]
+        mail_id = sql(f"""insert into public.emails (lead_id, direction, status, subject, to_address, sent_at)
+                         values ('{lead_id}', 'outbound', 'sent', 'Echt-Test Zählung', 'info@adler.example', now() - interval '1 minute')
+                         returning id""").splitlines()[0]
+        key = sql("select value from private.kv where key = 'TRACKING_KEY'")
+        target = 'https://salus-digital.example/angebot?a=1&b=2'
+        base = f'{GATEWAY}/functions/v1/email-track'
+        click = f"{base}/c/{mail_id}.{track_sig(key, f'c:{mail_id}:{target}')}?u={urllib.parse.quote(target, safe='')}"
+        status, headers, _ = fetch(click)
+        assert status == 302 and headers.get('Location') == target, f'Klick: {status} {headers.get("Location")}'
+        status, headers, body = fetch(f"{base}/o/{mail_id}.{track_sig(key, f'o:{mail_id}')}.gif")
+        assert status == 200 and headers.get('Content-Type') == 'image/gif' and body[:6] == b'GIF89a', f'Pixel: {status}'
+        evil = click.replace(urllib.parse.quote(target, safe=''), urllib.parse.quote('https://boese.example/', safe=''))
+        assert fetch(evil)[0] == 400, 'manipulierter Link leitet weiter'
+        assert sql(f"select opens || '/' || clicks from public.emails where id = '{mail_id}'") == '2/1'
+        page.reload()
+        page.wait_for_timeout(2000)
+        item = page.locator('.tl-item', has_text='Echt-Test Zählung')
+        expect(item.locator('.tag', has_text='2× geöffnet')).to_be_visible(timeout=6000)
+        expect(item.locator('.tag', has_text='1× geklickt')).to_be_visible()
+        item.locator('.tl-subject').click()
+        expect(item.locator('.track-list li', has_text='Link geklickt')).to_be_visible()
+    check('E-Mail-Öffnung und Link-Klick zählen (Server-Funktion)', email_tracking)
 
     # ---------- neuer Lead, Smart View, Sammeländerung ----------
     def new_lead():

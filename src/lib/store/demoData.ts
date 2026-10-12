@@ -15,6 +15,7 @@ import type {
   CustomActivity,
   CustomField,
   Email,
+  EmailTrackEvent,
   EmailAccount,
   EmailTemplate,
   Group,
@@ -79,7 +80,7 @@ export interface DemoDb {
   callScripts: Record<string, { key: string; seed: number }>;
 }
 
-export const DEMO_VERSION = 9;
+export const DEMO_VERSION = 10;
 
 /** Wochenende vermeiden: Samstag/Sonntag auf Montag (dir = 1) bzw. Freitag (dir = -1) schieben. */
 function weekday(d: Date, dir: 1 | -1): Date {
@@ -270,6 +271,28 @@ const NOTES = [
   'Inhaber laut Impressum geändert – Nachfolgerin seit Juli.',
   'Ist im Apothekenverbund, Entscheidungen laufen über die Zentrale.',
 ];
+
+// Öffnungen und Klicks einer verschickten Demo-Mail (Zählpixel/Links), zeitlich nach dem Versand
+function demoTracking(sentAt: Date, r: () => number): Pick<Email, 'opens' | 'last_opened_at' | 'clicks' | 'last_clicked_at' | 'track_events'> {
+  const events: EmailTrackEvent[] = [];
+  if (r() < 0.6) {
+    let t = sentAt.getTime() + (20 + r() * 180) * 60_000;
+    const opens = 1 + Math.floor(r() * 3);
+    for (let i = 0; i < opens && t < Date.now(); i++) {
+      events.push({ kind: 'open', at: new Date(t).toISOString() });
+      if (i === 0 && r() < 0.45) events.push({ kind: 'click', at: new Date(t + 40_000).toISOString(), url: 'https://salus-digital.example/apotheken' });
+      t += (2 + r() * 30) * 3_600_000;
+    }
+  }
+  const last = (k: EmailTrackEvent['kind']) => events.filter((e) => e.kind === k).at(-1)?.at ?? null;
+  return {
+    opens: events.filter((e) => e.kind === 'open').length,
+    last_opened_at: last('open'),
+    clicks: events.filter((e) => e.kind === 'click').length,
+    last_clicked_at: last('click'),
+    track_events: events,
+  };
+}
 
 export function createDemoDb(now = new Date()): DemoDb {
   const r = rng(20261007);
@@ -483,6 +506,8 @@ export function createDemoDb(now = new Date()): DemoDb {
     gcal_calendars: [{ id: 'team@group.calendar.google.com', label: 'Team-Kalender' }],
     gcal_last_sync: iso(new Date(now.getTime() - 3 * 60_000)),
     gcal_last_error: null,
+    email_track_opens: true,
+    email_track_clicks: true,
   };
 
   const leads: Lead[] = [];
@@ -846,7 +871,7 @@ export function createDemoDb(now = new Date()): DemoDb {
         is_html: true,
         template_id: TPL.kg,
         sent_at: iso(sentAt),
-        opens: r() < 0.6 ? 1 + Math.floor(r() * 3) : 0,
+        ...demoTracking(sentAt, r),
         created_at: iso(sentAt),
       });
     }

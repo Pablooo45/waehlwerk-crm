@@ -18,7 +18,7 @@ const custom = ({ can }: { can: (p: Permission) => boolean }) => can('manage_cus
 export const SETTINGS_ITEMS: SettingsItem[] = [
   { id: 'profile', label: 'Mein Profil', group: 'Persönlich', words: 'profil name passwort farbe mikrofon kopfhörer audio erreichbar weiterleitung handy darstellung', visible: all },
   { id: 'voicemail', label: 'Mailbox-Nachrichten', group: 'Persönlich', words: 'mailbox voicemail drop nachricht hinterlassen', visible: all },
-  { id: 'mailbox', label: 'E-Mail-Postfach', group: 'Persönlich', words: 'email postfach imap smtp ionos signatur', visible: all },
+  { id: 'mailbox', label: 'E-Mail-Postfach', group: 'Persönlich', words: 'email postfach imap smtp ionos signatur öffnungen klicks tracking zählpixel geöffnet', visible: all },
   { id: 'team', label: 'Benutzer', group: 'Team', words: 'team benutzer anlegen einladen mitarbeiter zugang', visible: admin },
   { id: 'roles', label: 'Rollen & Rechte', group: 'Team', words: 'rollen rechte ränge berechtigungen admin super user eingeschränkt', visible: admin },
   { id: 'groups', label: 'Gruppen', group: 'Team', words: 'gruppen teams opener closer', visible: admin },

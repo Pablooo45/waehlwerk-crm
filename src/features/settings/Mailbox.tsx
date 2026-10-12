@@ -1,13 +1,13 @@
 // Eigenes E-Mail-Postfach verbinden (IMAP/SMTP, z. B. IONOS): Mails aus dem CRM senden,
 // Antworten landen automatisch beim Lead.
 
-import { CheckCircle2, Mail, RefreshCw, Trash2 } from 'lucide-react';
+import { CheckCircle2, Info, Mail, RefreshCw, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import { useApp } from '../../app/context.tsx';
 import { formatRelative } from '../../lib/format.ts';
-import type { EmailAccount } from '../../lib/types.ts';
+import type { EmailAccount, OrgSettings } from '../../lib/types.ts';
 import { RichTextEditor } from '../../ui/RichText.tsx';
-import { errMsg, Field, useUi } from '../../ui/ui.tsx';
+import { errMsg, Field, Switch, useUi } from '../../ui/ui.tsx';
 import { useSaver } from './shared.tsx';
 
 const PRESETS: Record<string, { imap: string; smtp: string; label: string }> = {
@@ -21,7 +21,67 @@ const PRESETS: Record<string, { imap: string; smtp: string; label: string }> = {
 export default function Mailbox() {
   const { ref } = useApp();
   const account = ref.emailAccounts[0] ?? null;
-  return account ? <Connected account={account} /> : <ConnectForm />;
+  return (
+    <>
+      {account ? <Connected account={account} /> : <ConnectForm />}
+      <Tracking />
+    </>
+  );
+}
+
+// Öffnungen und Klicks wie in Close: fürs Team ein-/ausschalten (Admins), Hinweis für mich
+function Tracking() {
+  const { store, ref, me, can } = useApp();
+  const save = useSaver();
+  const admin = can('manage_organization');
+  const org = ref.org;
+  const on = org.email_track_opens || org.email_track_clicks;
+  const setOrg = (patch: Partial<OrgSettings>) => save(() => store.updateOrg(patch), 'Gespeichert.');
+  const notify = me.settings.notifyEmailOpens === true;
+  return (
+    <section className="section">
+      <h2>Öffnungen und Klicks</h2>
+      <p className="small muted">
+        Im Verlauf steht dann bei jeder E-Mail aus dem CRM, wie oft sie geöffnet und welche Links angeklickt wurden. Die Einstellung gilt fürs ganze Team.
+      </p>
+      <div className="col gap-8">
+        <label className="switch-row">
+          <span className="grow">
+            <strong>Öffnungen erfassen</strong>
+            <span className="block small muted">Über ein unsichtbares Bild in der Mail. Manche Mailprogramme laden Bilder von selbst, andere gar nicht – die Zahl ist ein Hinweis, keine Garantie.</span>
+          </span>
+          <Switch checked={org.email_track_opens} disabled={!admin} onChange={(v) => setOrg({ email_track_opens: v })} label="Öffnungen erfassen" />
+        </label>
+        <label className="switch-row">
+          <span className="grow">
+            <strong>Link-Klicks erfassen</strong>
+            <span className="block small muted">Links in der Mail laufen kurz über das CRM und führen dann zum Ziel. Kann bei Spamfiltern etwas mehr auffallen.</span>
+          </span>
+          <Switch checked={org.email_track_clicks} disabled={!admin} onChange={(v) => setOrg({ email_track_clicks: v })} label="Link-Klicks erfassen" />
+        </label>
+        {on ? (
+          <label className="switch-row">
+            <span className="grow">
+              <strong>Mich benachrichtigen</strong>
+              <span className="block small muted">Hinweis in deiner Inbox, wenn eine deiner E-Mails zum ersten Mal geöffnet oder ein Link darin geklickt wird.</span>
+            </span>
+            <Switch
+              checked={notify}
+              onChange={(v) => save(() => store.updateMyProfile({ settings: { ...me.settings, notifyEmailOpens: v } }), 'Gespeichert.')}
+              label="Mich benachrichtigen"
+            />
+          </label>
+        ) : null}
+      </div>
+      <div className="callout mt-12">
+        <Info />
+        <span>
+          In Deutschland brauchen Zählbild und umgeleitete Links meist die Einwilligung der Empfänger (TDDDG). Im Zweifel ausgeschaltet lassen oder kurz mit dem Datenschutz klären.
+          {!admin ? ' Ein- und ausschalten können Admins.' : ''}
+        </span>
+      </div>
+    </section>
+  );
 }
 
 function ConnectForm({ existing, onDone }: { existing?: EmailAccount; onDone?: () => void }) {

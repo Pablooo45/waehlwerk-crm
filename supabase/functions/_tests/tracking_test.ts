@@ -9,34 +9,34 @@ const KEY = 'geheim-geheim-geheim';
 const opts = { emailId: ID, base: BASE, key: KEY, opens: true, clicks: true };
 
 Deno.test('Zählpixel und Links werden eingesetzt, mailto und eigene Links bleiben', async () => {
-  const html = '<p>Hallo,</p><p><a href="https://apokunden.de/angebot?a=1&amp;b=2">Angebot</a> oder <a href=\'mailto:info@x.de\'>Mail</a></p>';
+  const html = '<p>Hallo,</p><p><a href="https://salus-digital.example/angebot?a=1&amp;b=2">Angebot</a> oder <a href=\'mailto:info@x.de\'>Mail</a></p>';
   const out = await addTracking(html, opts);
   assert(out.includes(`${BASE}/o/${ID}.`), 'Pixel');
   assert(out.includes('mailto:info@x.de'), 'mailto bleibt');
-  assert(!out.includes('href="https://apokunden.de'), 'Link umgeleitet');
+  assert(!out.includes('href="https://salus-digital.example'), 'Link umgeleitet');
   const m = /href="([^"]+\/c\/[^"]+)"/.exec(out);
   assert(m, 'Klick-Link');
   const target = new URL(m![1].replace(/&amp;/g, '&')).searchParams.get('u');
-  assertEquals(target, 'https://apokunden.de/angebot?a=1&b=2');
+  assertEquals(target, 'https://salus-digital.example/angebot?a=1&b=2');
   // nur Pixel, keine Links
   const onlyOpen = await addTracking(html, { ...opts, clicks: false });
-  assert(onlyOpen.includes('href="https://apokunden.de/angebot?a=1&amp;b=2"'));
+  assert(onlyOpen.includes('href="https://salus-digital.example/angebot?a=1&amp;b=2"'));
   // zweimal einsetzen ändert die eigenen Links nicht erneut
   const twice = await addTracking(out, { ...opts, opens: false });
   assertEquals((twice.match(/\/c\//g) ?? []).length, 1);
 });
 
 Deno.test('Links im Text werden klickbar, bestehende Links bleiben', () => {
-  const out = linkify('<p>Infos: https://apokunden.de/kurs. Oder <a href="https://x.de">hier</a> &amp; www</p>');
-  assert(out.includes('<a href="https://apokunden.de/kurs">https://apokunden.de/kurs</a>.'), out);
+  const out = linkify('<p>Infos: https://salus-digital.example/kurs. Oder <a href="https://x.de">hier</a> &amp; www</p>');
+  assert(out.includes('<a href="https://salus-digital.example/kurs">https://salus-digital.example/kurs</a>.'), out);
   assertEquals((out.match(/<a /g) ?? []).length, 2);
 });
 
 Deno.test('Signaturen: echte Links gelten, veränderte nicht', async () => {
   const o = new URL(await openUrl(opts));
   assertEquals(await parseHit(o, KEY), { kind: 'open', emailId: ID });
-  const c = new URL(await clickUrl(opts, 'https://apokunden.de/'));
-  assertEquals(await parseHit(c, KEY), { kind: 'click', emailId: ID, url: 'https://apokunden.de/' });
+  const c = new URL(await clickUrl(opts, 'https://salus-digital.example/'));
+  assertEquals(await parseHit(c, KEY), { kind: 'click', emailId: ID, url: 'https://salus-digital.example/' });
   // Ziel ausgetauscht → keine Weiterleitung
   const evil = new URL(c);
   evil.searchParams.set('u', 'https://boese.example/');
@@ -85,12 +85,12 @@ Deno.test('Öffnen: Pixel kommt immer, Ereignis und Hinweis an den Absender', as
 
 Deno.test('Klick: Weiterleitung zum Ziel, ohne Hinweis wenn nicht gewünscht', async () => {
   const { store, calls } = fakeStore({ wantsNotice: () => Promise.resolve(false) });
-  const res = await handleTrack(new Request(await clickUrl(opts, 'https://apokunden.de/kurs')), store);
+  const res = await handleTrack(new Request(await clickUrl(opts, 'https://salus-digital.example/kurs')), store);
   assertEquals(res.status, 302);
-  assertEquals(res.headers.get('location'), 'https://apokunden.de/kurs');
-  assertEquals(calls, ['record click https://apokunden.de/kurs']);
+  assertEquals(res.headers.get('location'), 'https://salus-digital.example/kurs');
+  assertEquals(calls, ['record click https://salus-digital.example/kurs']);
   // manipulierter Link: keine Weiterleitung
-  const evil = new URL(await clickUrl(opts, 'https://apokunden.de/kurs'));
+  const evil = new URL(await clickUrl(opts, 'https://salus-digital.example/kurs'));
   evil.searchParams.set('u', 'https://boese.example/');
   const r2 = await handleTrack(new Request(evil), store);
   assertEquals(r2.status, 400);
@@ -98,7 +98,7 @@ Deno.test('Klick: Weiterleitung zum Ziel, ohne Hinweis wenn nicht gewünscht', a
 
 Deno.test('Zählen schlägt fehl: Empfänger merkt nichts', async () => {
   const { store, calls } = fakeStore({ record: () => Promise.reject(new Error('Datenbank weg')) });
-  const res = await handleTrack(new Request(await clickUrl(opts, 'https://apokunden.de/')), store);
+  const res = await handleTrack(new Request(await clickUrl(opts, 'https://salus-digital.example/')), store);
   assertEquals(res.status, 302);
   assertEquals(calls, ['log Zählen fehlgeschlagen: Datenbank weg']);
 });

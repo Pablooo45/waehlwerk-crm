@@ -19,6 +19,7 @@ export interface UserSettings {
   leadColumns?: string[]; // Spalten der Leadliste ohne Smart View
   playbackRate?: number;
   enhanceAudio?: boolean;
+  notifyEmailOpens?: boolean; // Hinweis in der Inbox, wenn eine meiner E-Mails geöffnet / ein Link geklickt wird
 }
 
 // ---------- Rollen & Rechte ----------
@@ -140,6 +141,8 @@ export interface OrgSettings {
   gcal_calendars: { id: string; label?: string }[];
   gcal_last_sync: ISODate | null;
   gcal_last_error: string | null;
+  email_track_opens: boolean;
+  email_track_clicks: boolean;
 }
 
 export type StatusKind = 'open' | 'won' | 'lost';
@@ -520,8 +523,18 @@ export interface Email {
   sent_at?: ISODate | null;
   opens?: number;
   last_opened_at?: ISODate | null;
+  clicks?: number;
+  last_clicked_at?: ISODate | null;
+  track_events?: EmailTrackEvent[];
   error?: string | null;
   created_at: ISODate;
+}
+
+/** Öffnung oder Link-Klick einer verschickten E-Mail (Zählpixel / umgeleiteter Link) */
+export interface EmailTrackEvent {
+  kind: 'open' | 'click';
+  at: ISODate;
+  url?: string;
 }
 
 export interface EmailAccount {

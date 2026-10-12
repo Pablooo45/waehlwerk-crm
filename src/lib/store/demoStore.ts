@@ -417,7 +417,7 @@ export class DemoStore implements Store {
         this.db.emails.push({
           id: uuid(), lead_id: lead.id, contact_id: contact?.id ?? null, user_id: sender.id, account_id: null, direction: 'outbound', status: 'sent',
           from_address: sender.email, to_address: to, subject: fillTemplate(tpl.subject, vars), body: fillTemplate(tpl.body, vars), is_html: tpl.is_html,
-          template_id: tpl.id, sent_at: nowIso(), opens: 0, created_at: nowIso(),
+          template_id: tpl.id, sent_at: nowIso(), opens: 0, clicks: 0, track_events: [], created_at: nowIso(),
         });
         this.recompute(lead.id);
         return `E-Mail „${tpl.name}“ gesendet (Demo)`;
@@ -2183,7 +2183,7 @@ export class DemoStore implements Store {
       id: uuid(), lead_id: input.lead_id, contact_id: input.contact_id, user_id: me.id, account_id: account?.id ?? null, direction: 'outbound',
       status: scheduled ? 'scheduled' : 'sent', from_address: account?.email ?? me.email, to_address: input.to, cc: input.cc ?? null, bcc: input.bcc ?? null,
       subject: input.subject, body: input.body, is_html: input.is_html, attachments: input.attachments ?? [], template_id: input.template_id ?? null,
-      send_at: scheduled ? input.send_at! : null, sent_at: scheduled ? null : nowIso(), opens: 0, created_at: nowIso(),
+      send_at: scheduled ? input.send_at! : null, sent_at: scheduled ? null : nowIso(), opens: 0, clicks: 0, track_events: [], created_at: nowIso(),
     };
     this.db.emails.push(e);
     this.recompute(input.lead_id);

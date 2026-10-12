@@ -42,6 +42,7 @@ Die Einrichtung Schritt für Schritt steht in **[EINRICHTUNG.md](EINRICHTUNG.md)
 **E-Mail und SMS**
 - Eigenes Postfach verbinden (IONOS, Google Workspace, Microsoft 365 …): Mails aus dem CRM senden, Kopie im „Gesendet“-Ordner, Antworten landen automatisch beim Lead
 - Vorlagen mit Platzhaltern, geplanter Versand, Anhänge
+- Öffnungen und Link-Klicks wie in Close (im Verlauf „2× geöffnet“, auf Wunsch Hinweis in der Inbox) – fürs Team ein- und ausschaltbar, standardmäßig aus, weil Zählbild und umgeleitete Links in Deutschland meist eine Einwilligung brauchen
 - SMS senden und empfangen (Twilio)
 
 **Workflows** (wie Workflows/Sequenzen in Close)
@@ -72,7 +73,6 @@ Die Einrichtung Schritt für Schritt steht in **[EINRICHTUNG.md](EINRICHTUNG.md)
 ## Was (noch) fehlt im Vergleich zu Close
 
 - Predictive Dialer (mehrere Leitungen gleichzeitig)
-- E-Mail-Öffnungen zählen (Tracking-Pixel)
 - Smart-View-Filter aus Close werden beim Umzug nur als Name übernommen und müssen nachgebaut werden
 
 ## Kosten

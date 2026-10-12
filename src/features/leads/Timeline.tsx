@@ -20,6 +20,7 @@ import {
   Mail,
   MessageCircle,
   MessageSquare,
+  MousePointerClick,
   Paperclip,
   Pencil,
   Phone,
@@ -43,7 +44,7 @@ import { callHref } from '../../app/router.ts';
 import { bus } from '../../lib/bus.ts';
 import { formatDateTime, formatDuration, formatMoney, formatPhone, formatRelative } from '../../lib/format.ts';
 import { canDeleteActivity, canEditActivity } from '../../lib/perms.ts';
-import type { Call, Comment, CommentTarget, CustomActivity, Email, LeadEvent, Meeting, Note, SmsMessage, Task, TimelineItem } from '../../lib/types.ts';
+import type { Call, Comment, CommentTarget, CustomActivity, Email, EmailTrackEvent, LeadEvent, Meeting, Note, SmsMessage, Task, TimelineItem } from '../../lib/types.ts';
 import { MentionInput, mentionsIn, MentionText } from '../../ui/MentionInput.tsx';
 import { HtmlFrame, textToHtml } from '../../ui/RichText.tsx';
 import { cx, Empty, errMsg, MenuItem, Popover, Tag, useHotkeys, useMenu, useUi } from '../../ui/ui.tsx';
@@ -523,6 +524,7 @@ function EmailItem({ email, onReply, thread }: { email: Email; onReply?: (e: Ema
           </span>
           {st ? <Tag tone={st.tone}>{st.label}</Tag> : null}
           {!inbound && email.opens ? <Tag tone="green" title={email.last_opened_at ? `zuletzt ${formatDateTime(email.last_opened_at)}` : undefined}><Eye size={12} /> {email.opens}× geöffnet</Tag> : null}
+          {!inbound && email.clicks ? <Tag tone="green" title={email.last_clicked_at ? `zuletzt ${formatDateTime(email.last_clicked_at)}` : undefined}><MousePointerClick size={12} /> {email.clicks}× geklickt</Tag> : null}
         </>
       }
       actions={
@@ -540,6 +542,7 @@ function EmailItem({ email, onReply, thread }: { email: Email; onReply?: (e: Ema
       {email.error ? <div className="small err-text"><AlertTriangle size={13} /> {email.error}</div> : null}
       {open ? (
         <div className="mt-8">
+          {!inbound && email.track_events?.length ? <TrackEvents events={email.track_events} /> : null}
           <HtmlFrame html={email.is_html ? email.body : textToHtml(email.body)} maxHeight={420} />
           {email.attachments?.length ? (
             <div className="row wrap gap-4 mt-8">
@@ -560,6 +563,39 @@ function EmailItem({ email, onReply, thread }: { email: Email; onReply?: (e: Ema
         </div>
       ) : null}
     </Row>
+  );
+}
+
+// Öffnungen und Klicks einer verschickten E-Mail, neueste zuerst
+function TrackEvents({ events }: { events: EmailTrackEvent[] }) {
+  const [all, setAll] = useState(false);
+  const list = [...events].reverse();
+  const shown = all ? list : list.slice(0, 5);
+  const host = (url: string) => {
+    try {
+      const u = new URL(url);
+      return `${u.hostname.replace(/^www\./, '')}${u.pathname === '/' ? '' : u.pathname}`;
+    } catch {
+      return url;
+    }
+  };
+  return (
+    <ul className="track-list" aria-label="Öffnungen und Klicks">
+      {shown.map((e, i) => (
+        <li key={`${e.at}-${i}`}>
+          {e.kind === 'open' ? <Eye size={13} aria-hidden="true" /> : <MousePointerClick size={13} aria-hidden="true" />}
+          <span className="grow ellipsis">
+            {e.kind === 'open' ? 'Geöffnet' : <>Link geklickt: <a href={e.url} target="_blank" rel="noopener noreferrer">{host(e.url ?? '')}</a></>}
+          </span>
+          <span className="muted" title={formatDateTime(e.at)}>{formatRelative(e.at)}</span>
+        </li>
+      ))}
+      {list.length > 5 && !all ? (
+        <li>
+          <button type="button" className="link-like" onClick={() => setAll(true)}>{list.length - 5} weitere anzeigen</button>
+        </li>
+      ) : null}
+    </ul>
   );
 }
 

@@ -49,7 +49,7 @@ Bisher ist vor allem die Demo-Fassung durchgeklickt. Der echte Betrieb (Supabase
 - [x] B3 Gefundene Fehler behoben (Smart-View-Filter „leer/ausgefüllt“ bei Mehrfachauswahl). Dauerhaft: `npm run test:real` (Filter-Vergleich Datenbank ↔ JavaScript über alle Felder und Bedingungen + Durchklick-Test), läuft auch bei jeder Änderung auf GitHub.
 
 ### C – Close-Funktionen, die noch fehlen
-- [ ] C1 E-Mail-Öffnungen und Link-Klicks erfassen wie in Close (Zählpixel und Weiterleitungs-Links über eine Server-Funktion): im Verlauf „2× geöffnet“, Hinweis in der Inbox, in den Einstellungen abschaltbar.
+- [x] C1 E-Mail-Öffnungen und Link-Klicks erfassen wie in Close: Server-Funktion `email-track` (signierte Links, keine offene Weiterleitung), im Verlauf „2× geöffnet / 1× geklickt“ mit Liste, auf Wunsch Hinweis in der Inbox, unter Einstellungen → E-Mail-Postfach fürs Team schaltbar (standardmäßig aus, TDDDG). Getestet in Deno, Datenbank und im echten Betrieb.
 - [ ] C2 Smart Views beim Close-Umzug mit ihren Filtern übernehmen (Close-Abfrage → eigene Filter, soweit übersetzbar; der Rest als Hinweis an der Smart View).
 - [ ] C3 Notizen mit Formatierung wie in Close (fett, kursiv, Listen, Links) – im Editor und im Verlauf.
 - [ ] C4 Predictive Dialer (mehrere Leitungen gleichzeitig) – **nur nach Rückfrage bei Nico**: In Deutschland heikel, weil dabei „stille Anrufe“ entstehen (Kunde hebt ab, niemand ist dran).
@@ -64,10 +64,11 @@ Bisher ist vor allem die Demo-Fassung durchgeklickt. Der echte Betrieb (Supabase
 
 ## Stand
 
-- 2026-10-12: C1 in Arbeit – Server-Teil fertig (Zählfunktion `email-track`, Datenbank, Tests); als Nächstes die Oberfläche (Verlauf, Einstellungen, Demo).
+- 2026-10-12: C1 erledigt. Als Nächstes C2 (Smart Views aus Close mit Filtern).
 
 ## Protokoll
 
 - 2026-10-10 – Handy-Ansichten der Einstellungs-Listen und Smart Views, Gesprächsnotiz während des Anrufs, „Nächster Lead“ aus der Inbox; Browser-Tests ins Repo übernommen; Arbeitsplan angelegt.
 - 2026-10-10 – Abgleich aller Datenbank-Abfragen mit dem Schema (281 Abfragen, keine Abweichung); fängt Tippfehler in Tabellen, Spalten, Verknüpfungen, Feldern und Funktionen.
 - 2026-10-10 – Echter Betrieb geprüft: lokale Supabase-Umgebung (`scripts/local-stack.sh`), Durchklick-Test mit zwei Rollen und Filter-Vergleich (239 Bedingungen). Gefunden und behoben: Filter „ist leer/ausgefüllt“ für Mehrfachauswahl-Felder zählte eine leere Auswahl als ausgefüllt.
+- 2026-10-12 – E-Mail-Öffnungen und Link-Klicks (C1). Entscheidung: standardmäßig aus, weil Zählbild und umgeleitete Links nach TDDDG meist eine Einwilligung brauchen; Klick zählt auch als Öffnung; Abrufe in den ersten 10 Sekunden nach dem Versand zählen nicht (Virenscanner); die Kopie im Gesendet-Ordner bleibt ohne Zählbild, damit das eigene Öffnen nicht zählt.

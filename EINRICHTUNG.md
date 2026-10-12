@@ -102,6 +102,7 @@ Jede Person braucht:
 - Das CRM nutzt die verschlüsselten Ports **465 (Postausgang)** und **993 (Posteingang)**. Port 587 ist bei Supabase gesperrt.
 - Google Workspace und Microsoft 365 brauchen bei aktivierter Zwei-Faktor-Anmeldung ein **App-Passwort** statt des normalen Passworts.
 - Ab dann gehen E-Mails aus dem CRM über das eigene Postfach (mit Kopie im „Gesendet“-Ordner), und Antworten von Kontakten erscheinen innerhalb von 5 Minuten beim Lead. Beim ersten Abruf werden nur die Mails der letzten 7 Tage übernommen.
+- **Öffnungen und Klicks** (wie in Close) schaltet ein Admin auf derselben Seite für das ganze Team ein. Standardmäßig aus: Zählbild und umgeleitete Links brauchen in Deutschland meist die Einwilligung der Empfänger – vorher mit dem Datenschutz klären.
 
 ## Schritt 9: Calendly und Google Kalender
 
