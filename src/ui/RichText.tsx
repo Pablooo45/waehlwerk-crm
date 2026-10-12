@@ -24,7 +24,15 @@ export function sanitizeHtml(html: string): string {
       }
       for (const attr of [...child.attributes]) {
         const name = attr.name.toLowerCase();
-        const keep = (child.tagName === 'A' && name === 'href') || (child.tagName === 'IMG' && (name === 'src' || name === 'alt')) || name === 'colspan';
+        const keep =
+          (child.tagName === 'A' && name === 'href') ||
+          (child.tagName === 'IMG' && (name === 'src' || name === 'alt')) ||
+          name === 'colspan' ||
+          // @Erwähnungen in Notizen
+          (child.tagName === 'SPAN' &&
+            ((name === 'class' && attr.value === 'mention-tag') ||
+              (name === 'data-user' && /^[0-9a-f-]{36}$/i.test(attr.value)) ||
+              (name === 'contenteditable' && attr.value === 'false')));
         if (!keep || /^\s*(javascript|data|vbscript):/i.test(attr.value)) child.removeAttribute(attr.name);
       }
       if (child.tagName === 'A') {

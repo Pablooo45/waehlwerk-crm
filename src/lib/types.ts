@@ -494,6 +494,7 @@ export interface Note {
   contact_id: ID | null;
   user_id: ID | null;
   body: string;
+  body_html?: string | null; // nur bei formatierten Notizen
   mentions: ID[];
   pinned: boolean;
   created_at: ISODate;

@@ -273,11 +273,10 @@ const NOTES = [
 ];
 
 // Öffnungen und Klicks einer verschickten Demo-Mail (Zählpixel/Links), zeitlich nach dem Versand
-function demoTracking(sentAt: Date, r: () => number): Pick<Email, 'opens' | 'last_opened_at' | 'clicks' | 'last_clicked_at' | 'track_events'> {
+function demoTracking(sentAt: Date, opens: number, r: () => number): Pick<Email, 'opens' | 'last_opened_at' | 'clicks' | 'last_clicked_at' | 'track_events'> {
   const events: EmailTrackEvent[] = [];
-  if (r() < 0.6) {
+  if (opens > 0) {
     let t = sentAt.getTime() + (20 + r() * 180) * 60_000;
-    const opens = 1 + Math.floor(r() * 3);
     for (let i = 0; i < opens && t < Date.now(); i++) {
       events.push({ kind: 'open', at: new Date(t).toISOString() });
       if (i === 0 && r() < 0.45) events.push({ kind: 'click', at: new Date(t + 40_000).toISOString(), url: 'https://salus-digital.example/apotheken' });
@@ -871,7 +870,8 @@ export function createDemoDb(now = new Date()): DemoDb {
         is_html: true,
         template_id: TPL.kg,
         sent_at: iso(sentAt),
-        ...demoTracking(sentAt, r),
+        // wie bisher: Anzahl der Öffnungen aus der gemeinsamen Zufallsfolge, Details mit eigener (die übrigen Demo-Daten bleiben gleich)
+        ...demoTracking(sentAt, r() < 0.6 ? 1 + Math.floor(r() * 3) : 0, rng(leadNo * 7919)),
         created_at: iso(sentAt),
       });
     }

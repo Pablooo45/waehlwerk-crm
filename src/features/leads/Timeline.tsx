@@ -46,6 +46,7 @@ import { formatDateTime, formatDuration, formatMoney, formatPhone, formatRelativ
 import { canDeleteActivity, canEditActivity } from '../../lib/perms.ts';
 import type { Call, Comment, CommentTarget, CustomActivity, Email, EmailTrackEvent, LeadEvent, Meeting, Note, SmsMessage, Task, TimelineItem } from '../../lib/types.ts';
 import { MentionInput, mentionsIn, MentionText } from '../../ui/MentionInput.tsx';
+import { NoteEditor, NoteHtml, noteTextToHtml, noteValue } from '../../ui/NoteEditor.tsx';
 import { HtmlFrame, textToHtml } from '../../ui/RichText.tsx';
 import { cx, Empty, errMsg, MenuItem, Popover, Tag, useHotkeys, useMenu, useUi } from '../../ui/ui.tsx';
 import { OutcomeTag, RecordingPlayer } from '../common/bits.tsx';
@@ -405,13 +406,16 @@ function NoteItem({ note, leadId, thread }: { note: Note; leadId: string; thread
   const { name } = useLookups();
   const { toast, confirm } = useUi();
   const [editing, setEditing] = useState(false);
-  const [body, setBody] = useState(note.body);
+  const initial = note.body_html ?? noteTextToHtml(note.body);
+  const [html, setHtml] = useState(initial);
   const mayEdit = canEditActivity(ref, note.user_id);
   const mayDelete = canDeleteActivity(ref, note.user_id);
 
   const save = async () => {
+    const { body, body_html } = noteValue(html);
+    if (!body.trim()) return;
     try {
-      await store.updateNote(note.id, { body, mentions: mentionsIn(body, ref.profiles) });
+      await store.updateNote(note.id, { body, body_html, mentions: mentionsIn(body, ref.profiles) });
       setEditing(false);
       bus.emit('timeline', leadId);
     } catch (e) {
@@ -472,12 +476,14 @@ function NoteItem({ note, leadId, thread }: { note: Note; leadId: string; thread
     >
       {editing ? (
         <div className="col mt-8">
-          <MentionInput value={body} onChange={setBody} profiles={ref.profiles} onSubmit={save} ariaLabel="Notiz bearbeiten" />
+          <NoteEditor value={html} onChange={setHtml} profiles={ref.profiles} onSubmit={save} ariaLabel="Notiz bearbeiten" autoFocus />
           <div className="row">
             <button type="button" className="btn small primary" onClick={save}>Speichern</button>
-            <button type="button" className="btn small" onClick={() => { setBody(note.body); setEditing(false); }}>Abbrechen</button>
+            <button type="button" className="btn small" onClick={() => { setHtml(initial); setEditing(false); }}>Abbrechen</button>
           </div>
         </div>
+      ) : note.body_html ? (
+        <NoteHtml html={note.body_html} />
       ) : (
         <div className="tl-body"><MentionText text={note.body} profiles={ref.profiles} /></div>
       )}

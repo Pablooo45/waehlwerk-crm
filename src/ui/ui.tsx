@@ -445,6 +445,8 @@ export function useHotkeys(map: Record<string, (e: KeyboardEvent) => void>, enab
       const fn = saved.current[key];
       if (!fn) return;
       if (typing && !allowInInputs && !key.startsWith('mod+')) return;
+      // Taste ist verbraucht: nicht zusätzlich in ein Feld tippen, das sich gerade dadurch öffnet (z. B. „n“ → Notiz)
+      if (!typing && !mod) e.preventDefault();
       fn(e);
     };
     window.addEventListener('keydown', onKey);

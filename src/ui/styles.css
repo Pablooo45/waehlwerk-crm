@@ -4596,6 +4596,59 @@ kbd.kbd-on-dark {
   margin: 0 0 8px;
 }
 
+.rte-sep {
+  width: 1px;
+  margin: 4px 4px;
+  background: var(--line);
+}
+
+/* Notiz-Editor und formatierte Notizen (wie in Close) */
+.note-editor .rte-bar {
+  padding: 2px 4px;
+}
+
+.note-editor .rte-bar .icon-btn {
+  width: 28px;
+  height: 26px;
+}
+
+.note-body {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.note-body.is-empty::before {
+  content: attr(data-placeholder);
+  color: var(--muted);
+  pointer-events: none;
+}
+
+.note-body ul,
+.note-body ol,
+.note-html ul,
+.note-html ol {
+  margin: 4px 0;
+  padding-left: 22px;
+}
+
+.note-body p,
+.note-html p {
+  margin: 0 0 6px;
+}
+
+.note-html {
+  white-space: normal;
+}
+
+.note-html li {
+  margin: 1px 0;
+}
+
+.note-html a,
+.note-body a {
+  color: var(--cobalt);
+}
+
 .html-frame {
   width: 100%;
   border: 1px solid var(--line);

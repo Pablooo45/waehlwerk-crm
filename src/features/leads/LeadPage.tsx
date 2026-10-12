@@ -44,6 +44,7 @@ import { bus } from '../../lib/bus.ts';
 import { ensureUrl, fillTemplate, formatDate, formatDateTime, formatMoney, formatPhone, formatRelative, hostOf } from '../../lib/format.ts';
 import type { ActivityType, Comment, Contact, CustomActivity, CustomField, Email, Lead, LeadInput, Opportunity, Task, TimelineItem } from '../../lib/types.ts';
 import { MentionInput, mentionsIn } from '../../ui/MentionInput.tsx';
+import { NoteEditor, noteHtmlToText, noteValue } from '../../ui/NoteEditor.tsx';
 import { copyText, cx, Empty, errMsg, Field, InlinePanel, Loading, MenuItem, Modal, Popover, Segmented, Tag, useHotkeys, useMenu, useUi } from '../../ui/ui.tsx';
 import { CallButton, DueTag, StatusPill, UserSelect } from '../common/bits.tsx';
 import { FieldInput, formatFieldValue, isEmptyValue, shapeOf } from '../common/fields.tsx';
@@ -1002,13 +1003,15 @@ function WorkflowsSection({ leadId, onAdd }: { leadId: string; onAdd: () => void
 function NoteComposer({ lead, onClose }: { lead: Lead; onClose: () => void }) {
   const { store, ref } = useApp();
   const { toast } = useUi();
-  const [note, setNote] = useState('');
+  const [html, setHtml] = useState('');
   const [busy, setBusy] = useState(false);
+  const empty = !noteHtmlToText(html).trim();
   const save = async () => {
-    if (!note.trim()) return;
+    const { body, body_html } = noteValue(html);
+    if (!body.trim()) return;
     setBusy(true);
     try {
-      await store.addNote(lead.id, note.trim(), null, mentionsIn(note, ref.profiles));
+      await store.addNote(lead.id, body, null, mentionsIn(body, ref.profiles), body_html);
       bus.emit('timeline', lead.id);
       onClose();
     } catch (e) {
@@ -1025,11 +1028,11 @@ function NoteComposer({ lead, onClose }: { lead: Lead; onClose: () => void }) {
         <>
           <span className="xs muted hide-touch" style={{ marginRight: 'auto' }}>Strg + Enter speichert, @Name erwähnt Kollegen</span>
           <button type="button" className="btn" onClick={onClose}>Abbrechen</button>
-          <button type="button" className="btn primary" onClick={save} disabled={busy || !note.trim()}>Notiz speichern</button>
+          <button type="button" className="btn primary" onClick={save} disabled={busy || empty}>Notiz speichern</button>
         </>
       }
     >
-      <MentionInput id="composer-note" className="composer-input" value={note} onChange={setNote} profiles={ref.profiles} placeholder="Notiz schreiben …" onSubmit={save} ariaLabel="Notiz" />
+      <NoteEditor id="composer-note" className="composer-input" value={html} onChange={setHtml} profiles={ref.profiles} placeholder="Notiz schreiben …" onSubmit={save} ariaLabel="Notiz" />
     </InlinePanel>
   );
 }

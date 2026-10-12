@@ -869,9 +869,12 @@ export async function importActivityPage(repo: SupabaseRepo, maps: Maps, list: C
       if (/^https?:\/\//.test(recording)) queue.push({ kind: 'recording', ref: id, url: recording });
       counts.calls = (counts.calls ?? 0) + 1;
     } else if (type === 'Note') {
-      const body = String(a.note ?? '').trim() || htmlToText(String(a.note_html ?? ''));
+      const html = String(a.note_html ?? '').trim();
+      const body = String(a.note ?? '').trim() || htmlToText(html);
       if (!body) continue;
-      add('notes', { id, lead_id: leadId, contact_id: contactId, user_id: userId, body, created_at: a.date_created, updated_at: a.date_created, _ext: a.id });
+      // formatierte Notizen (fett, Listen, Links) behalten; angezeigt wird das HTML bereinigt
+      const bodyHtml = /<(strong|b|em|i|u|ul|ol|a)\b/i.test(html) ? html : null;
+      add('notes', { id, lead_id: leadId, contact_id: contactId, user_id: userId, body, body_html: bodyHtml, created_at: a.date_created, updated_at: a.date_created, _ext: a.id });
       counts.notes = (counts.notes ?? 0) + 1;
     } else if (type === 'Email') {
       const inbound = /^in/i.test(String(a.direction ?? ''));

@@ -450,14 +450,14 @@ export class SupabaseStore implements Store {
     return rows as TimelineItem[];
   }
 
-  async addNote(leadId: ID, body: string, contactId: ID | null = null, mentions: ID[] = []) {
+  async addNote(leadId: ID, body: string, contactId: ID | null = null, mentions: ID[] = [], html: string | null = null) {
     return must(
-      await this.sb.from('notes').insert({ lead_id: leadId, body, contact_id: contactId, mentions }).select('*').single(),
+      await this.sb.from('notes').insert({ lead_id: leadId, body, body_html: html, contact_id: contactId, mentions }).select('*').single(),
       'Notiz speichern',
     ) as Note;
   }
 
-  async updateNote(id: ID, patch: Partial<Pick<Note, 'body' | 'pinned' | 'mentions'>>) {
+  async updateNote(id: ID, patch: Partial<Pick<Note, 'body' | 'body_html' | 'pinned' | 'mentions'>>) {
     must(await this.sb.from('notes').update(patch).eq('id', id), 'Notiz speichern');
   }
 

@@ -894,11 +894,11 @@ export class DemoStore implements Store {
     }
   }
 
-  async addNote(leadId: ID, body: string, contactId: ID | null = null, mentions: ID[] = []) {
+  async addNote(leadId: ID, body: string, contactId: ID | null = null, mentions: ID[] = [], html: string | null = null) {
     await wait();
     if (!this.canSeeLeadId(leadId)) throw new Error('Lead nicht gefunden.');
     const now = nowIso();
-    const note: Note = { id: uuid(), lead_id: leadId, contact_id: contactId, user_id: this.user().id, body, mentions, pinned: false, created_at: now, updated_at: now };
+    const note: Note = { id: uuid(), lead_id: leadId, contact_id: contactId, user_id: this.user().id, body, body_html: html, mentions, pinned: false, created_at: now, updated_at: now };
     this.db.notes.push(note);
     this.mentionsNotify(leadId, 'note', note.id, body, mentions);
     this.recompute(leadId);
@@ -906,7 +906,7 @@ export class DemoStore implements Store {
     return clone(note);
   }
 
-  async updateNote(id: ID, patch: { body?: string; pinned?: boolean; mentions?: ID[] }) {
+  async updateNote(id: ID, patch: { body?: string; body_html?: string | null; pinned?: boolean; mentions?: ID[] }) {
     const n = this.db.notes.find((x) => x.id === id);
     if (!n) return;
     if (n.user_id !== this.me?.id && !this.has('manage_others_activities')) throw new Error('Nur eigene Notizen können geändert werden.');

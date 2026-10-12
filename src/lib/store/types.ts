@@ -273,8 +273,8 @@ export interface Store {
 
   // Verlauf, Notizen, Kommentare, Formulare
   timeline(leadId: ID, limit?: number): Promise<TimelineItem[]>;
-  addNote(leadId: ID, body: string, contactId?: ID | null, mentions?: ID[]): Promise<Note>;
-  updateNote(id: ID, patch: Partial<Pick<Note, 'body' | 'pinned' | 'mentions'>>): Promise<void>;
+  addNote(leadId: ID, body: string, contactId?: ID | null, mentions?: ID[], html?: string | null): Promise<Note>;
+  updateNote(id: ID, patch: Partial<Pick<Note, 'body' | 'body_html' | 'pinned' | 'mentions'>>): Promise<void>;
   deleteNote(id: ID): Promise<void>;
   logEmail(input: { lead_id: ID; contact_id: ID | null; to_address: string | null; subject: string; body: string }): Promise<Email>;
   listComments(leadId: ID): Promise<Comment[]>;
