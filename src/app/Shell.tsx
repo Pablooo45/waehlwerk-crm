@@ -38,6 +38,7 @@ import { type NavItem, useNavItems } from './nav.tsx';
 import { SearchPalette } from './Search.tsx';
 import { DialpadModal, PhonePanel, usePhoneLine } from './PhonePanel.tsx';
 import { ShortcutsHelp } from './ShortcutsHelp.tsx';
+import { CrashGuard, OfflineBanner } from './resilience.tsx';
 
 const InboxPage = lazy(() => import('../features/inbox/InboxPage.tsx'));
 const LeadsPage = lazy(() => import('../features/leads/LeadsPage.tsx'));
@@ -257,6 +258,7 @@ function ShellInner() {
       {navOpen ? <div className="nav-scrim" onClick={() => setNavOpen(false)} /> : null}
 
       <div className="main">
+        <OfflineBanner />
         {demo ? <DemoBanner onIncoming={() => (phone as unknown as DemoPhone).simulateIncoming?.()} onReset={() => { (store as unknown as DemoStore).reset(); location.reload(); }} /> : <JobsBanner />}
         <header className="topbar show-mobile-flex">
           <button type="button" className="icon-btn" onClick={() => setNavOpen(true)} aria-label="Menü öffnen">
@@ -284,9 +286,11 @@ function ShellInner() {
           />
         ) : null}
         <main className="content" id="main">
-          <Suspense fallback={<Loading />}>
-            <Page route={route} />
-          </Suspense>
+          <CrashGuard resetKey={location.hash} onError={(m, d) => store.logClientError(m, d)}>
+            <Suspense fallback={<Loading />}>
+              <Page route={route} />
+            </Suspense>
+          </CrashGuard>
         </main>
       </div>
 

@@ -299,6 +299,15 @@ with sync_playwright() as p:
         expect(cols.nth(1).locator('.deal', has_text=name).first).to_be_visible(timeout=3000)
     check('Opportunity in andere Phase ziehen', pipeline_drag)
 
+    # ---------- Internet weg ----------
+    def offline():
+        ctx = page.context
+        ctx.set_offline(True)
+        expect(page.locator('.offline-banner')).to_be_visible(timeout=3000)
+        ctx.set_offline(False)
+        expect(page.locator('.offline-banner')).to_have_count(0, timeout=3000)
+    check('Internet weg: Hinweis oben, danach wieder weg', offline)
+
     # ---------- Inbox ----------
     def inbox():
         go(page, '#/inbox')

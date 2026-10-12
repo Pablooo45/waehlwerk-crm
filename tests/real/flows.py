@@ -380,8 +380,23 @@ with sync_playwright() as p:
         expect(page.locator('.inbox-side')).to_be_visible()
     check('Inbox öffnen', inbox)
 
+    # In einem zweiten Tab abgemeldet: der erste Tab merkt es und zeigt die Anmeldung mit Hinweis
+    def other_tab_logout():
+        other = page.context.new_page()
+        other.goto(APP)
+        expect(other.locator('.sidebar')).to_be_visible(timeout=10000)
+        other.wait_for_timeout(800)
+        logout(other)
+        other.close()
+        expect(page.locator('input[type=email]')).to_be_visible(timeout=8000)
+        expect(page.locator('.login-form .callout')).to_contain_text('abgemeldet')
+    check('In anderem Tab abgemeldet: Anmeldung mit Hinweis', other_tab_logout)
+
     # ---------- eingeschränkte Rolle ----------
-    check('Abmelden', lambda: logout(page))
+    def logout_if_needed():
+        if page.locator('.sidebar').count():
+            logout(page)
+    check('Abmelden', logout_if_needed)
     check('Anmelden als Mia (nur eigene Leads)', lambda: login(page, MIA))
 
     def mia_visibility():

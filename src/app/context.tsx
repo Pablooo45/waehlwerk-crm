@@ -30,6 +30,7 @@ export function AppProvider({
   setRefData,
   phone,
   onSignOut,
+  onBeforeSignOut,
   children,
 }: {
   store: Store;
@@ -37,6 +38,7 @@ export function AppProvider({
   setRefData: (r: RefData) => void;
   phone: Phone;
   onSignOut: () => void;
+  onBeforeSignOut?: () => void;
   children: ReactNode;
 }) {
   const { toast } = useUi();
@@ -86,10 +88,11 @@ export function AppProvider({
   );
 
   const signOut = useCallback(async () => {
+    onBeforeSignOut?.();
     phone.stop();
     await store.signOut();
     onSignOut();
-  }, [phone, store, onSignOut]);
+  }, [phone, store, onSignOut, onBeforeSignOut]);
 
   const value = useMemo<AppApi>(
     () => ({

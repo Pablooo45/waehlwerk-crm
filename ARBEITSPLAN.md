@@ -56,7 +56,7 @@ Bisher ist vor allem die Demo-Fassung durchgeklickt. Der echte Betrieb (Supabase
 
 ### D – Leistung und Stabilität
 - [x] D1 20.000 Leads: gemessen mit `npm run test:perf` (22.500 Leads, 45.000 Anrufe; Admin und Mitarbeiterin mit eingeschränkter Sicht). Alle Seiten unter 1,3 s. Behoben: Rechteprüfung an Kindtabellen lief je Zeile über eine Funktion (Leadliste für Mitarbeiter 5 s → 0,5 s, neue Migration), Dubletten-Hinweis auf der Lead-Seite durchsuchte den ganzen Bestand (1,3 s → unter 10 ms), Leadliste lud beim Öffnen doppelt, Kontakte der Leadliste werden nur noch für die angezeigte Seite geholt.
-- [ ] D2 Fehlerfälle verständlich: Internet weg, Anmeldung abgelaufen, Mikrofon oder Twilio nicht verfügbar, Server-Funktion antwortet nicht.
+- [x] D2 Fehlerfälle verständlich: rotes Band „Keine Internetverbindung“ (danach lädt alles neu), Sitzung im Hintergrund beendet → Anmeldung mit Erklärung (getestet: in anderem Tab abgemeldet), Absturz einer Seite → Hinweis mit „Neu laden“ statt weißer Seite (Fehler wird protokolliert), Zeitlimits für Datenbank (30 s) und Server-Funktionen (160 s) mit klarer Meldung, Anmelde-Fehler bei fehlender Verbindung oder zu vielen Versuchen. Mikrofon- und Twilio-Fehler hatten schon klare Texte.
 
 ### E – Abschluss
 - [ ] E1 Rundgang Desktop, Handy, Dunkelmodus; Texte und Abstände glätten.
@@ -64,7 +64,7 @@ Bisher ist vor allem die Demo-Fassung durchgeklickt. Der echte Betrieb (Supabase
 
 ## Stand
 
-- 2026-10-12: C1–C3 und D1 erledigt (C4 wartet auf Nicos Entscheidung). Als Nächstes D2 (Fehlerfälle verständlich).
+- 2026-10-12: C1–C3, D1 und D2 erledigt (C4 wartet auf Nicos Entscheidung). Als Nächstes E1 (Rundgang).
 
 ## Protokoll
 
@@ -75,3 +75,4 @@ Bisher ist vor allem die Demo-Fassung durchgeklickt. Der echte Betrieb (Supabase
 - 2026-10-12 – Smart Views aus Close mit Filtern (C2). Die genaue Form der Close-Abfragen ließ sich nicht an euren echten Smart Views prüfen (die Close-Schnittstelle hier zeigt nur Namen); der Übersetzer folgt dem Aufbau der Close-Filter-Schnittstelle und ist vorsichtig: Was er nicht sicher versteht, übernimmt er nicht, sondern nennt es in der Beschreibung der Smart View.
 - 2026-10-12 – Notizen mit Formatierung (C3). Entscheidung: Text bleibt das Original (für Suche, Erwähnungen, Export, Benachrichtigungen), HTML nur zusätzlich und nur bei echter Formatierung; Einfügen übernimmt nur reinen Text (keine fremden Formatierungen/Skripte). Nebenbei behoben: Tastenkürzel wie „n“ tippten ihren Buchstaben in das Feld, das sie gerade öffnen.
 - 2026-10-12 – Leistung mit 22.500 Leads (D1). Wichtigste Erkenntnis: Zeilenrechte mit Funktionsaufruf je Zeile und JSON-Vergleiche unter Zeilenrechten (dürfen keine Indizes nutzen) waren die Bremsen. Lösung ohne Änderung der Rechte-Logik: Prüfung als EXISTS direkt in den Regeln (gleiche Sichtbarkeit wie can_see_lead, von den Datenbank-Tests abgesichert), Dubletten-Suche mit eigener Sichtbarkeitsprüfung.
+- 2026-10-12 – Fehlerfälle (D2): Offline-Hinweis, automatische Abmeldung mit Erklärung, Absturz-Schutz für Seiten, Zeitlimits für Anfragen.

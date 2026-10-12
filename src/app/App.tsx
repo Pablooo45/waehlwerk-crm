@@ -8,13 +8,17 @@ import type { SupabaseStore } from '../lib/store/supabaseStore.ts';
 import type { Profile, RefData } from '../lib/types.ts';
 import { Avatar, errMsg, Field, Loading, Modal, useUi } from '../ui/ui.tsx';
 import { AppProvider } from './context.tsx';
+import { CrashGuard } from './resilience.tsx';
 import { Shell } from './Shell.tsx';
 
 type Phase =
   | { kind: 'boot' }
   | { kind: 'error'; message: string }
-  | { kind: 'login'; store: Store }
+  | { kind: 'login'; store: Store; notice?: string }
   | { kind: 'ready'; store: Store; ref: RefData; phone: Phone };
+
+// Abmelden über den Knopf (dann kein Hinweis „Sitzung abgelaufen“)
+let signingOut = false;
 
 // Bei „Automatisch“ fasst das CRM das Attribut nicht an – eine Wahl des Umfelds (z. B. der Vorschau-Ansicht) bleibt erhalten.
 const HOST_THEME = typeof document !== 'undefined' ? document.documentElement.dataset.theme : undefined;
@@ -55,6 +59,15 @@ export function App() {
         if (cancelled) return;
         if (store.mode === 'live') {
           (store as SupabaseStore).onPasswordRecovery?.(() => setRecovery(true));
+          // Sitzung im Hintergrund beendet (abgelaufen, Zugang gesperrt, an anderem Gerät abgemeldet): zurück zur Anmeldung
+          store.onSignedOut?.(() => {
+            if (signingOut) return;
+            setPhase((p) => {
+              if (p.kind !== 'ready') return p;
+              p.phone.stop();
+              return { kind: 'login', store, notice: 'Du wurdest abgemeldet – die Sitzung ist abgelaufen oder dein Zugang wurde geändert. Bitte melde dich neu an.' };
+            });
+          });
         }
         window.addEventListener('error', (ev) => store.logClientError(ev.message, { file: ev.filename, line: ev.lineno, page: location.hash }));
         window.addEventListener('unhandledrejection', (ev) => store.logClientError(`Unbehandelt: ${errMsg(ev.reason)}`, { page: location.hash }));
@@ -92,6 +105,7 @@ export function App() {
     return (
       <Login
         store={phase.store}
+        notice={phase.notice}
         onSignedIn={async () => {
           try {
             await enter(phase.store);
@@ -112,9 +126,17 @@ export function App() {
           setPhase((p) => (p.kind === 'ready' ? { ...p, ref } : p));
         }}
         phone={phase.phone}
-        onSignOut={() => setPhase({ kind: 'login', store: phase.store })}
+        onSignOut={() => {
+          signingOut = false;
+          setPhase({ kind: 'login', store: phase.store });
+        }}
+        onBeforeSignOut={() => {
+          signingOut = true;
+        }}
       >
-        <Shell />
+        <CrashGuard onError={(m, d) => phase.store.logClientError(m, d)}>
+          <Shell />
+        </CrashGuard>
       </AppProvider>
       {recovery ? <NewPasswordModal store={phase.store} onClose={() => setRecovery(false)} /> : null}
     </>
@@ -166,7 +188,7 @@ function Switchboard() {
   );
 }
 
-function Login({ store, onSignedIn }: { store: Store; onSignedIn: () => void }) {
+function Login({ store, onSignedIn, notice }: { store: Store; onSignedIn: () => void; notice?: string }) {
   const { toast } = useUi();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -246,6 +268,7 @@ function Login({ store, onSignedIn }: { store: Store; onSignedIn: () => void }) 
           ) : (
             <form onSubmit={submit} className="col gap-12">
               <h2>{forgot ? 'Passwort zurücksetzen' : 'Anmelden'}</h2>
+              {notice && !forgot ? <div className="callout" role="status">{notice}</div> : null}
               <Field label="E-Mail">
                 <input className="input" type="email" autoComplete="username" value={email} onChange={(e) => setEmail(e.target.value)} required />
               </Field>

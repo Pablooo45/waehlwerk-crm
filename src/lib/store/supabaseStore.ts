@@ -102,7 +102,8 @@ function must<T>(res: { data: T; error: { message: string; code?: string } | nul
 function translateError(msg: string, what: string): string {
   if (/row-level security|permission denied/i.test(msg)) return `${what}: Keine Berechtigung.`;
   if (/JWT expired|invalid JWT/i.test(msg)) return 'Sitzung abgelaufen – bitte neu anmelden.';
-  if (/Failed to fetch|NetworkError|Load failed/i.test(msg)) return `${what}: Keine Verbindung zum Server.`;
+  if (/Zeitüberschreitung/i.test(msg)) return `${what}: Der Server antwortet nicht (Zeitüberschreitung). Bitte gleich noch einmal versuchen.`;
+  if (/Failed to fetch|NetworkError|Load failed/i.test(msg)) return `${what}: ${navigator.onLine === false ? 'Keine Internetverbindung.' : 'Keine Verbindung zum Server.'}`;
   if (/duplicate key/i.test(msg)) return `${what}: Gibt es schon.`;
   if (/violates foreign key/i.test(msg)) return `${what}: Wird noch verwendet.`;
   return `${what}: ${msg}`;
@@ -117,6 +118,22 @@ function chunks<T>(arr: T[], size = CHUNK): T[][] {
 
 const num = (v: unknown) => Number(v ?? 0);
 
+// Datenbank- und Anmelde-Anfragen nicht ewig hängen lassen (z. B. WLAN weg, Server überlastet).
+// Dateien (Aufnahmen, Anhänge) dürfen länger brauchen.
+const REQUEST_TIMEOUT = 30_000;
+function fetchWithTimeout(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
+  const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
+  if (/\/storage\/v1\//.test(url) || init?.signal) return fetch(input, init);
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), REQUEST_TIMEOUT);
+  return fetch(input, { ...init, signal: ctrl.signal })
+    .catch((e) => {
+      if (ctrl.signal.aborted) throw new TypeError('Failed to fetch: Zeitüberschreitung – der Server antwortet nicht.');
+      throw e;
+    })
+    .finally(() => clearTimeout(timer));
+}
+
 export class SupabaseStore implements Store {
   readonly mode = 'live' as const;
   readonly sb: SupabaseClient;
@@ -129,6 +146,7 @@ export class SupabaseStore implements Store {
   constructor(url = config.supabaseUrl, key = config.supabaseKey) {
     this.sb = createClient(url, key, {
       auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true },
+      global: { fetch: fetchWithTimeout },
     });
   }
 
@@ -165,6 +183,8 @@ export class SupabaseStore implements Store {
     if (error || !data.user) {
       if (/invalid login/i.test(error?.message ?? '')) throw new Error('E-Mail oder Passwort ist falsch.');
       if (/not confirmed/i.test(error?.message ?? '')) throw new Error('Die E-Mail-Adresse ist noch nicht bestätigt.');
+      if (/fetch|network|Zeitüberschreitung/i.test(error?.message ?? '')) throw new Error(translateError(error?.message ?? '', 'Anmelden'));
+      if (/rate limit|too many/i.test(error?.message ?? '')) throw new Error('Zu viele Versuche – bitte ein paar Minuten warten.');
       throw new Error(error?.message ?? 'Anmeldung fehlgeschlagen.');
     }
     return this.loadProfile(data.user.id);
@@ -1227,6 +1247,9 @@ export class SupabaseStore implements Store {
   async invoke<T = Record<string, unknown>>(fn: string, body: Record<string, unknown> = {}): Promise<T> {
     const { data } = await this.sb.auth.getSession();
     const token = data.session?.access_token;
+    // Server-Funktionen dürfen bei Supabase bis zu 150 s laufen (Umzug, Postfach, Sammel-E-Mails) – länger wartet niemand
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 160_000);
     let res: Response;
     try {
       res = await fetch(`${config.functionsUrl}/${fn}`, {
@@ -1237,10 +1260,14 @@ export class SupabaseStore implements Store {
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
         body: JSON.stringify(body),
+        signal: ctrl.signal,
       });
     } catch {
-      throw new FunctionError('Server nicht erreichbar. Internetverbindung prüfen.', 0);
+      clearTimeout(timer);
+      if (ctrl.signal.aborted) throw new FunctionError('Der Server antwortet nicht (Zeitüberschreitung). Bitte gleich noch einmal versuchen.', 0);
+      throw new FunctionError(navigator.onLine === false ? 'Keine Internetverbindung.' : 'Server nicht erreichbar. Internetverbindung prüfen.', 0);
     }
+    clearTimeout(timer);
     const text = await res.text();
     let json: Record<string, unknown> = {};
     try {
