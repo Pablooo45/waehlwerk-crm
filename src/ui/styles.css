@@ -6442,8 +6442,29 @@ kbd.kbd-on-dark {
   min-width: 0;
 }
 
+.earn-main {
+  container-type: inline-size;
+}
+
 .earn-kpis {
   margin-bottom: 0;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.earn-kpis.n3 {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+/* schmale Spalte (z. B. Laptop mit Seitenleiste und „Mein Modell“): 2 × 2 statt 3 + 1 */
+@container (max-width: 680px) {
+  .earn-kpis,
+  .earn-kpis.n3 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .earn-deals .note-col {
+    display: none;
+  }
 }
 
 .earn-goal-bar {

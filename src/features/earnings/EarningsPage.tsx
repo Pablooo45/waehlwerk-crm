@@ -242,7 +242,7 @@ function Kpis({ r, onGoal }: { r: MonthResult; onGoal: () => void }) {
     else provision = perDeal || 'ohne Provision';
   }
   return (
-    <div className="kpis earn-kpis">
+    <div className={cx('kpis earn-kpis', !plan && 'n3')}>
       <div className="kpi">
         <div className="v num">{formatMoney(r.revenue)}</div>
         <div className="k">
@@ -343,7 +343,7 @@ function DealsTable({ deals, onEdit }: { deals: WonDeal[]; onEdit: (d: WonDeal) 
             <th className="hide-mobile">Setting-Termin</th>
             <th>Abschluss</th>
             <th className="right">Dealwert</th>
-            <th className="hide-mobile">Notiz</th>
+            <th className="hide-mobile note-col">Notiz</th>
             <th className="hide-mobile">
               <span className="sr-only">Bearbeiten</span>
             </th>
@@ -366,7 +366,7 @@ function DealsTable({ deals, onEdit }: { deals: WonDeal[]; onEdit: (d: WonDeal) 
               <td className="hide-mobile num">{showDay(d.setting_date)}</td>
               <td className="num">{showDay(d.closed_on)}</td>
               <td className="right num">{formatMoney(d.deal_value)}</td>
-              <td className="hide-mobile note-cell">
+              <td className="hide-mobile note-cell note-col">
                 <span className="ellipsis block">{d.note ?? ''}</span>
               </td>
               <td className="right hide-mobile">
