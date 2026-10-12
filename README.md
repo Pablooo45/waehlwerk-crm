@@ -35,6 +35,7 @@ Die Einrichtung Schritt für Schritt steht in **[EINRICHTUNG.md](EINRICHTUNG.md)
 
 **Leads und Vertrieb**
 - Leads mit mehreren Kontakten und Nummern, eigene Felder, Verlauf (Anrufe, Notizen, E-Mails, SMS, Termine, eigene Aktivitäten, Änderungen) mit Filter und Suche
+- Notizen mit Formatierung wie in Close (fett, kursiv, Listen, Links) und @Erwähnungen
 - Smart Views mit Filtern, Suche nach Name, Ort, Person oder Nummer, Spalten frei wählbar
 - Sammelaktionen: Status/Zuständige ändern, löschen, Sammel-E-Mail, in Workflow aufnehmen; Dubletten finden und zusammenführen
 - Opportunities mit mehreren Pipelines, eigene Aktivitäten (wie Custom Activities in Close), Aufgaben-Inbox mit Benachrichtigungen und @Erwähnungen
@@ -69,6 +70,7 @@ Die Einrichtung Schritt für Schritt steht in **[EINRICHTUNG.md](EINRICHTUNG.md)
 - Diagnose-Seite mit Systemprüfung, Netz- und Audiotest und dem Knopf „Fehlerbericht kopieren“
 - Fehlerprotokoll aus allen Browsern und Server-Funktionen
 - Hell- und Dunkelmodus, läuft auch am Handy
+- Schnell auch bei großen Beständen (gemessen mit 22.500 Leads und 45.000 Anrufen), klare Hinweise bei fehlender Verbindung oder abgelaufener Anmeldung
 
 ## Was (noch) fehlt im Vergleich zu Close
 
@@ -92,6 +94,7 @@ npm run test:functions   # Tests der Server-Funktionen (braucht Deno)
 npm run test:db          # Datenbank-Tests + Abgleich aller Abfragen im Code mit dem Schema (lokales PostgreSQL)
 npm run test:e2e         # Klick-Tests gegen die Demo (Playwright für Python)
 npm run test:real        # echter Betrieb: lokale Supabase-Umgebung, Filter-Vergleich, Klick-Tests mit zwei Rollen
+npm run test:perf        # Leistung: 20.000 Leads anlegen und die wichtigsten Seiten messen
 ```
 
 `scripts/local-stack.sh start` startet eine lokale Supabase-Umgebung ohne Docker (PostgreSQL, PostgREST, Supabase Auth, die Server-Funktionen und die Website unter http://127.0.0.1:54320). Die Tests laufen bei jeder Änderung auch auf GitHub (Workflow „Tests“).
@@ -114,6 +117,7 @@ npm run test:real        # echter Betrieb: lokale Supabase-Umgebung, Filter-Verg
 | `twilio-token` | Zugang fürs Browser-Telefon |
 | `twilio-sms`, `sms` | SMS empfangen und senden |
 | `email` | Postfach verbinden, E-Mails senden, Sammel-E-Mails |
+| `email-track` | Öffnungen (Zählbild) und Link-Klicks zählen – nur wenn fürs Team eingeschaltet |
 | `jobs` | jede Minute: Workflows, geplante E-Mails/SMS, Postfach-Abruf, Aufnahmen nachholen, Löschfristen, Aufräumen |
 | `ai-webhook` | fertige Abschriften übernehmen, Zusammenfassung schreiben |
 | `admin` | Team, Rollen, Twilio/Calendly/Google/KI verbinden, Umzug aus Close, Systemstatus |

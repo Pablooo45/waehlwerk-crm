@@ -160,8 +160,8 @@ function Overview({ from, to, users }: RangeProps) {
     <div style={{ opacity: q.loading ? 0.6 : 1 }}>
       <div className="kpis">
         <div className="kpi"><div className="v">{formatNumber(sum.dials)}</div><div className="k">Anwahlversuche</div></div>
-        <div className="kpi"><div className="v">{formatNumber(sum.reached)}</div><div className="k">Entscheider erreicht, {formatPercent(sum.reached, sum.dials)}</div></div>
-        <div className="kpi"><div className="v">{formatNumber(sum.meetings)}</div><div className="k">Termine gelegt, {formatPercent(sum.meetings, sum.reached)} der Erreichten</div></div>
+        <div className="kpi"><div className="v">{formatNumber(sum.reached)}</div><div className="k">Entscheider erreicht{sum.dials ? `, ${formatPercent(sum.reached, sum.dials)}` : ''}</div></div>
+        <div className="kpi"><div className="v">{formatNumber(sum.meetings)}</div><div className="k">Termine gelegt{sum.reached ? `, ${formatPercent(sum.meetings, sum.reached)} der Erreichten` : ''}</div></div>
         <div className="kpi"><div className="v">{formatNumber(sum.held)}</div><div className="k">Termine stattgefunden, von {formatNumber(sum.booked)} gebuchten</div></div>
         <div className="kpi"><div className="v">{formatTalkTime(sum.talk)}</div><div className="k">Gesprächszeit</div></div>
         <div className="kpi"><div className="v">{formatNumber(sum.won)}</div><div className="k">Abschlüsse, {formatMoney(sum.value)}</div></div>

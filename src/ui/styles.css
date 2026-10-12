@@ -4388,6 +4388,7 @@ kbd.kbd-on-dark {
 .tabs .count {
   margin-left: 6px;
   background: var(--ink);
+  color: var(--paper);
 }
 
 /* ---------- Seitenleiste (Handy) ---------- */

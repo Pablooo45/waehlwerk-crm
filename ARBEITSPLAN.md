@@ -59,12 +59,12 @@ Bisher ist vor allem die Demo-Fassung durchgeklickt. Der echte Betrieb (Supabase
 - [x] D2 Fehlerfälle verständlich: rotes Band „Keine Internetverbindung“ (danach lädt alles neu), Sitzung im Hintergrund beendet → Anmeldung mit Erklärung (getestet: in anderem Tab abgemeldet), Absturz einer Seite → Hinweis mit „Neu laden“ statt weißer Seite (Fehler wird protokolliert), Zeitlimits für Datenbank (30 s) und Server-Funktionen (160 s) mit klarer Meldung, Anmelde-Fehler bei fehlender Verbindung oder zu vielen Versuchen. Mikrofon- und Twilio-Fehler hatten schon klare Texte.
 
 ### E – Abschluss
-- [ ] E1 Rundgang Desktop, Handy, Dunkelmodus; Texte und Abstände glätten.
+- [x] E1 Rundgang Desktop, Handy, Dunkelmodus (alle Hauptseiten, Lead-Seite mit Notiz-Editor, Einstellungen): keine Konsolenfehler. Behoben: Zähler an den Reitern im Dunkelmodus unsichtbar, Berichte zeigten „– der Erreichten“, wenn noch niemand erreicht wurde.
 - [ ] E2 README und EINRICHTUNG aktualisieren, Demo neu bauen.
 
 ## Stand
 
-- 2026-10-12: C1–C3, D1 und D2 erledigt (C4 wartet auf Nicos Entscheidung). Als Nächstes E1 (Rundgang).
+- 2026-10-12: C1–C3, D1, D2 und E1 erledigt (C4 wartet auf Nicos Entscheidung). Als Nächstes E2 (Doku, Demo).
 
 ## Protokoll
 
@@ -76,3 +76,4 @@ Bisher ist vor allem die Demo-Fassung durchgeklickt. Der echte Betrieb (Supabase
 - 2026-10-12 – Notizen mit Formatierung (C3). Entscheidung: Text bleibt das Original (für Suche, Erwähnungen, Export, Benachrichtigungen), HTML nur zusätzlich und nur bei echter Formatierung; Einfügen übernimmt nur reinen Text (keine fremden Formatierungen/Skripte). Nebenbei behoben: Tastenkürzel wie „n“ tippten ihren Buchstaben in das Feld, das sie gerade öffnen.
 - 2026-10-12 – Leistung mit 22.500 Leads (D1). Wichtigste Erkenntnis: Zeilenrechte mit Funktionsaufruf je Zeile und JSON-Vergleiche unter Zeilenrechten (dürfen keine Indizes nutzen) waren die Bremsen. Lösung ohne Änderung der Rechte-Logik: Prüfung als EXISTS direkt in den Regeln (gleiche Sichtbarkeit wie can_see_lead, von den Datenbank-Tests abgesichert), Dubletten-Suche mit eigener Sichtbarkeitsprüfung.
 - 2026-10-12 – Fehlerfälle (D2): Offline-Hinweis, automatische Abmeldung mit Erklärung, Absturz-Schutz für Seiten, Zeitlimits für Anfragen.
+- 2026-10-12 – Rundgang (E1) in hell, dunkel und am Handy mit Bildschirmfotos. Zwei kleine Darstellungsfehler behoben (Reiter-Zähler im Dunkelmodus, Prozentangaben in den Berichten ohne Grundlage); README um Notiz-Formatierung, Leistung, `test:perf` und `email-track` ergänzt.
